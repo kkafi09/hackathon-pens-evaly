@@ -36,7 +36,7 @@ def main(trigger_only=False, components=('backend', 'frontend')):
                 # Stop first: startup recovery must never mark another instance's work failed.
                 stopped = client.post(base + '/applications/' + uuid + '/stop')
                 stopped.raise_for_status()
-            response = client.get(base + '/deploy', params={'uuid': uuid, 'force': 'true'})
+            response = client.post(base + '/deploy', params={'uuid': uuid, 'force': 'true'})
             response.raise_for_status()
             jobs = response.json().get('deployments', [])
             if not jobs:

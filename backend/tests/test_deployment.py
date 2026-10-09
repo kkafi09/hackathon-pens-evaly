@@ -19,6 +19,7 @@ def test_initial_webhook_deployment(monkeypatch, backend_failure):
             if request.url.path == '/api/v1/applications/backend' and request.method == 'GET':
                 return httpx.Response(200, json={'status': 'exited:unhealthy'})
             if request.url.path == '/api/v1/deploy':
+                assert request.method == 'POST'
                 return httpx.Response(200, json={'deployments': [{'deployment_uuid': request.url.params['uuid']}]})
             if request.url.path.startswith('/api/v1/deployments/'):
                 status = 'failed' if backend_failure and request.url.path.endswith('/backend') else 'finished'
@@ -68,6 +69,7 @@ def test_trigger_only_queues_both_without_polling(monkeypatch, capsys, backend_r
             assert backend_running
             return httpx.Response(200, json={})
         assert request.url.path == '/api/v1/deploy', 'Trigger mode must not poll deployments.'
+        assert request.method == 'POST'
         kind = request.url.params['uuid']
         if failure == kind:
             return httpx.Response(500, json={})
@@ -117,6 +119,7 @@ def test_single_component_does_not_touch_other_application(monkeypatch, componen
     def handler(request):
         calls.append(request)
         if request.url.path == '/api/v1/deploy':
+            assert request.method == 'POST'
             assert request.url.params['uuid'] == components[0]
             return httpx.Response(200, json={'deployments': [{'deployment_uuid': 'job'}]})
         assert request.url.path == '/api/v1/applications/' + components[0]
