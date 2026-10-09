@@ -3,7 +3,6 @@ import io
 import json
 import os
 from contextlib import asynccontextmanager
-from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,6 +26,8 @@ load_dotenv(ROOT / '.env')
 
 _dataset_cache = {}
 _dataset_lock = RLock()
+_run_store = None
+_store_lock = RLock()
 
 def dataset():
     try:
@@ -50,16 +51,25 @@ def dataset():
         raise HTTPException(503, 'Data belum siap. Periksa MySQL, jalankan migration dan seeder dari container backend.') from None
 
 
-@lru_cache
 def store():
+    global _run_store
     try:
-        return RunStore()
+        with _store_lock:
+            if _run_store is None:
+                _run_store = RunStore()
+            return _run_store
     except Exception:
         raise HTTPException(503, 'Penyimpanan belum siap. Jalankan migration MySQL.') from None
 
 
 @asynccontextmanager
 async def lifespan(app):
+    # Recovery is optional at boot; missing schema/data must not prevent exec.
+    if all(readiness().values()):
+        try:
+            store()
+        except HTTPException:
+            pass
     yield
 
 
