@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h1 align="center">evaluate your business wisely</h1>
+<h1 align="center">Evaluate Your Business Wisely</h1>
 
 <p align="center">
   Explore customer context. Discover expansion opportunities. Trace the evidence behind every result.

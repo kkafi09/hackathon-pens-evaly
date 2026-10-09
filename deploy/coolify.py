@@ -1,10 +1,11 @@
 """Deploy immutable images through authenticated Coolify webhooks."""
+import argparse
 import os
 import time
 import httpx
 
 
-def main():
+def main(trigger_only=False):
     base = os.environ['COOLIFY_URL'].rstrip('/') + '/api/v1'
     tag = 'sha-' + os.environ['GITHUB_SHA']
     with httpx.Client(headers={'Authorization': 'Bearer ' + os.environ['COOLIFY_API_TOKEN']}, timeout=30) as client:
@@ -24,6 +25,8 @@ def main():
             uuid = os.environ[f'COOLIFY_{kind}_UUID']
             response = client.patch(base + '/applications/' + uuid, json={'docker_registry_image_tag': tag})
             response.raise_for_status()
+        for kind in ['BACKEND', 'FRONTEND']:
+            uuid = os.environ[f'COOLIFY_{kind}_UUID']
             if kind == 'BACKEND' and backend_running:
                 # Stop first: startup recovery must never mark another instance's work failed.
                 stopped = client.post(base + '/applications/' + uuid + '/stop')
@@ -34,6 +37,9 @@ def main():
             if not jobs:
                 raise RuntimeError('Coolify tidak mengembalikan ID deployment.')
             deployment = jobs[0]['deployment_uuid']
+            if trigger_only:
+                print(f'{kind} Deployment triggered: {tag} ({deployment})')
+                continue
             deadline = time.monotonic() + 600
             while time.monotonic() < deadline:
                 response = client.get(base + '/deployments/' + deployment)
@@ -59,6 +65,8 @@ def main():
             else:
                 raise RuntimeError(kind + ' liveness belum berhasil.')
             print(kind + ' deployed: ' + tag)
+        if trigger_only:
+            return
         response = httpx.get(os.environ['BACKEND_DOMAIN'].rstrip('/') + '/api/health/ready', timeout=10)
         if response.status_code == 503:
             print('Container hidup; readiness belum siap. Jalankan migration/seeder manual melalui docker exec.')
@@ -68,4 +76,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--trigger-only', action='store_true', help='Queue both deployments without waiting for completion or health checks.')
+    main(trigger_only=parser.parse_args().trigger_only)

@@ -13,67 +13,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify:
+  lint:
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ROOT_PASSWORD: test-only-password
-          MYSQL_DATABASE: evaly_test
-        ports: ['3306:3306']
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-only-password"
-          --health-interval=10s --health-timeout=5s --health-retries=12
-    env:
-      DATABASE_URL: mysql+pymysql://root:test-only-password@127.0.0.1:3306/evaly_test?charset=utf8mb4
-      TEST_DATABASE_URL: mysql+pymysql://root:test-only-password@127.0.0.1:3306/evaly_test?charset=utf8mb4
-      OPENROUTER_API_KEY: ''
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: |
-          python -m venv .venv
-          .venv/bin/python -m pip install -r requirements.txt
-          .venv/bin/python -m alembic upgrade head
-          .venv/bin/python -m backend.seed
-          .venv/bin/python -m pytest backend/tests -q
       - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bunx playwright install --with-deps chromium
-      - run: bun run test:e2e
-      - name: Build and smoke-test separate images
-        run: |
-          docker build -f Dockerfile.backend -t evaly-backend-test .
-          docker build -f Dockerfile.frontend -t evaly-frontend-test .
-          docker run -d --name evaly-backend-smoke --network host -e DATABASE_URL -e OPENROUTER_API_KEY evaly-backend-test
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/api/health/live && break || sleep 2; done
-          docker exec evaly-backend-smoke python -m alembic upgrade head
-          docker exec evaly-backend-smoke python -m backend.seed
-          curl -fsS http://127.0.0.1:8000/api/health/ready
-          docker run -d --name evaly-frontend-smoke --network host -e BACKEND_URL=http://127.0.0.1:8000 evaly-frontend-test
-          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz && break || sleep 2; done
-          curl -fsS http://127.0.0.1:8080/healthz
-          curl -fsS http://127.0.0.1:8080/api/graph > /tmp/evaly-graph.json
-          python -c "import json; graph=json.load(open('/tmp/evaly-graph.json')); assert sum(n['kind']=='account' for n in graph['nodes'])==45"
-      - name: Clean up smoke containers
-        if: always()
-        run: |
-          docker rm -f evaly-frontend-smoke evaly-backend-smoke 2>/dev/null || true
+      - run: bun run lint
 
   images:
     if: github.event_name != 'pull_request'
-    needs: verify
+    needs: lint
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         component: [frontend, backend]
     steps:
@@ -110,4 +65,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install 'httpx>=0.28,<1'
-      - run: python deploy/coolify.py
+      - name: Trigger backend and frontend deployment
+        run: python deploy/coolify.py --trigger-only

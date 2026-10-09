@@ -36,11 +36,11 @@ Expected HTTP status 200. Dockerfile juga memiliki HEALTHCHECK. Healthy berarti 
 
 ## CI/CD dan rollback
 
-Pull request menjalankan lint, format, build, migration/seed MySQL sementara, pytest, dan Playwright dengan respons Jev terkontrol. Push main menerbitkan kedua image dengan tag `sha-<commit>` dan `latest`, lalu memperbarui tag Coolify dan memanggil authenticated deploy webhook.
+Pull request hanya memasang dependency frontend dan menjalankan `bun run lint`. Push main atau pemicu manual menjalankan lint, lalu build/push image frontend dan backend secara paralel dengan tag `sha-<commit>` dan `latest` serta cache build. Build frontend tetap memeriksa TypeScript. Kedua deployment hanya dipicu setelah kedua image berhasil dipush; tidak ada filter path. Workflow tidak menjalankan format check, database tes, pytest, Playwright, atau smoke test container. Pengujian tetap dapat dijalankan manual.
 
 Repository secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `COOLIFY_API_TOKEN`. Repository variables: `COOLIFY_URL`, `COOLIFY_BACKEND_UUID`, `COOLIFY_FRONTEND_UUID`. Tidak ada credential produksi di image atau source control.
 
-Backend satu worker/satu instance. Deployment menunggu analisis aktif selesai, menghentikan backend lama, lalu deploy backend baru dan frontend setelah liveness berhasil. Pipeline melaporkan readiness secara terpisah; tidak menjalankan migration/seeder produksi. Jalankan migration manual setiap ada revision baru, sebelum menggunakan fitur yang bergantung padanya. Rollback memilih tag SHA terakhir pada Coolify tanpa downgrade database otomatis.
+Backend satu worker/satu instance. Skrip tetap menunggu analisis aktif selesai dan menghentikan backend lama sebelum penggantian. Mode `python deploy/coolify.py --trigger-only` memperbarui tag kedua aplikasi, lalu memicu backend diikuti frontend tanpa menunggu deployment selesai. Pipeline melaporkan **Deployment triggered** setelah kedua webhook diterima; ini bukan konfirmasi aplikasi sudah berjalan. Health check tetap ditangani platform. Tanpa flag, skrip mempertahankan mode menunggu deployment dan pemeriksaan health. Workflow tetap antre tanpa pembatalan run aktif dan tidak menjalankan migration/seeder produksi. Jalankan migration manual setiap ada revision baru, sebelum menggunakan fitur yang bergantung padanya. Rollback memilih tag SHA terakhir pada Coolify tanpa downgrade database otomatis.
 
 ## Pengujian
 
