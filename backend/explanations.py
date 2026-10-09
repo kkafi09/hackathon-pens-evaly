@@ -6,6 +6,8 @@ ACTION_NAMES = {'discovery': 'discovery kebutuhan', 'proposal': 'menyiapkan pena
 
 
 def explain_run(run):
+    from .validation import summarize
+    summarize(run)
     modern = run.get('rubric_version') == 'expansion-v2.0'
     reasons = list(run.get('review_reasons', [])) if modern else []
     steps = run.get('steps', [])
@@ -79,4 +81,10 @@ def explain_run(run):
     run['review_reasons'], run['next_steps'] = reasons, next_steps
     if result:
         result['review_reasons'], result['next_steps'] = reasons, next_steps
+        summary = result.get('validation_summary')
+        if modern and summary:
+            for step in next_steps:
+                step['label'] = 'Usulan setelah verifikasi' if summary['status'] == 'review' else 'Langkah berikutnya'
+                step['verification'] = [{'parameter_id': r.get('question_id'), 'source_ids': r.get('source_ids', []),
+                                         'message': r['message']} for r in reasons]
     return run

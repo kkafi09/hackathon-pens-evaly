@@ -81,11 +81,68 @@ export type ReviewReason = {
   source_ids: string[];
 };
 export type NextStep = {
+  label?: string;
+  verification?: { parameter_id?: string; source_ids: string[]; message: string }[];
   action: string;
   owner: string;
   confirmations: string[];
   expected_outcome: string;
 };
+export type ValidationSummary = {
+  version: string;
+  status: 'done' | 'review';
+  title: string;
+  summary: string;
+  signal_type: string;
+  review_parameter_ids: string[];
+  supporting_record_count: number;
+  source_count: number;
+  evaluated_record_count: number;
+  limitations: string[];
+  complete: boolean;
+  estimate_label: string;
+  action_label: string;
+};
+export type ExpansionScore = {
+  version: string;
+  complete: boolean;
+  value: number | null;
+  display_value: number | null;
+  unavailable_reason: string | null;
+  base_score: number | null;
+  cap_score: number | null;
+  limiting_parameter_ids: string[];
+  active_group_weight: number;
+  applicable_count: number;
+  evaluated_count: number;
+  note: string;
+  groups: {
+    id: string;
+    label: string;
+    policy_weight: number;
+    applicable: boolean;
+    parameter_count: number;
+    value: number | null;
+    effective_weight: number;
+  }[];
+  parameters: {
+    id: string;
+    group: string;
+    text: string;
+    type: string;
+    applicable: boolean;
+    raw_value: number | null;
+    effective_value: number | null;
+    effective_weight: number;
+    weighted_points: number | null;
+    answer: RecordData | null;
+    confidence: number | null;
+    source_ids: string[];
+    adjustments: string[];
+  }[];
+};
+export const scorePercent = (value: number) =>
+  `${new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
 export type Run = {
   rubric?: Record<string, RubricEvaluation>;
   review_reasons?: ReviewReason[];
@@ -104,7 +161,7 @@ export type Run = {
   error: string | null;
   dataset_hash: string;
   rubric_version: string;
-  result: RecordData | null;
+  result: (RecordData & { expansion_score?: ExpansionScore }) | null;
   steps: {
     id: string;
     title: string;

@@ -7,21 +7,22 @@ execFileSync(process.platform === 'win32' ? '.venv/Scripts/python.exe' : '.venv/
   'backend.tests.ui_fixture',
 ]);
 const fixture = JSON.parse(readFileSync('runtime/e2e-v2.json', 'utf-8'));
+const validationFixtures = JSON.parse(readFileSync('runtime/e2e-validation.json', 'utf-8'));
 
 async function open(page: Page, controlled = fixture) {
   await page.route('**/api/health', (route) => route.fulfill({ json: { jev_configured: true } }));
-  await page.route('**/api/accounts/C02/expansion-runs', (route) =>
+  await page.route(`**/api/accounts/${controlled.account_id}/expansion-runs`, (route) =>
     route.fulfill({ json: route.request().method() === 'POST' ? controlled : [] }),
   );
   await page.route(`**/api/expansion-runs/${controlled.id}`, (route) =>
     route.fulfill({ json: controlled }),
   );
   await page.goto('/');
-  await page.getByRole('combobox', { name: 'Cari semua node' }).fill('C02');
+  await page.getByRole('combobox', { name: 'Cari semua node' }).fill(controlled.account_id);
   await page.locator('.search-results').getByRole('option').first().click();
   await page.getByRole('button', { name: 'Sesuaikan tampilan' }).click();
   await page.waitForTimeout(400);
-  await page.getByTestId('entity-C02').click();
+  await page.getByTestId(`entity-${controlled.account_id}`).click();
   await page.getByRole('menuitem', { name: /Account Expansion/ }).click();
 }
 
@@ -65,6 +66,61 @@ test('v2 has nineteen evaluations, group evidence and preserves the graph viewpo
     .click();
   await expect(page.getByTestId('rubric-OI-3')).toContainText('Confidence penilaian 100%');
   await page.screenshot({ path: 'runtime/rubric-v2-desktop.png', fullPage: true });
+});
+
+test('v2 review conclusion is independent of OI-3 confidence and reports supporting counts', async ({
+  page,
+}) => {
+  await open(page, validationFixtures.reviewed);
+  await page.getByRole('button', { name: 'Jalankan analisis baru' }).click();
+  await page.getByRole('button', { name: 'Buka hasil analisis', exact: true }).click();
+  const summary = page.getByRole('region', { name: 'Ringkasan analisis' });
+  await expect(summary).toContainText('Hasil perlu ditinjau');
+  await expect(summary).toContainText('sebagian hasil belum terverifikasi');
+  await expect(summary).toContainText('1 record pendukung · 1 sumber data berbeda');
+  await expect(summary).toContainText('Belum dihitung');
+  await expect(summary).toContainText('Usulan setelah verifikasi');
+  await expect(summary).not.toContainText('100%');
+  await expect(summary).not.toContainText('Confidence niat');
+  const expectedScore = validationFixtures.reviewed.result.expansion_score.display_value
+    .toFixed(1)
+    .replace('.', ',');
+  await expect(summary).toContainText(`Skor dukungan ekspansi: ${expectedScore}%`);
+  await page.screenshot({ path: 'runtime/validation-review-desktop.png', fullPage: true });
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
+  const calculation = page.getByRole('region', { name: 'Bagaimana skor dihitung' });
+  await expect(calculation.locator('[data-testid^="score-"]')).toHaveCount(19);
+  await expect(page.getByTestId('score-FE-1')).toContainText(
+    'Input estimasi outlet belum lolos pemeriksaan kode',
+  );
+  await expect(page.getByTestId('score-PC-1')).toContainText('Tidak berlaku');
+  await page
+    .getByRole('region', { name: 'Evaluasi rubrik' })
+    .locator('summary')
+    .filter({ hasText: 'Identifikasi peluang' })
+    .click();
+  await expect(page.getByTestId('rubric-OI-3')).toContainText('Confidence penilaian 100%');
+  await expect(page.getByRole('region', { name: 'Langkah berikutnya' })).toContainText(
+    'USULAN SETELAH VERIFIKASI',
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Tutup penjelasan', exact: true }).click();
+  await summary.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'runtime/validation-review-mobile.png', fullPage: true });
+});
+
+test('v2 one source can finish with a limitation and no global confidence', async ({ page }) => {
+  await open(page, validationFixtures.single);
+  await page.getByRole('button', { name: 'Jalankan analisis baru' }).click();
+  await page.getByRole('button', { name: 'Buka hasil analisis', exact: true }).click();
+  const summary = page.getByRole('region', { name: 'Ringkasan analisis' });
+  await expect(summary).toContainText('Sinyal ekspansi teridentifikasi');
+  await expect(summary).toContainText('2 record pendukung · 1 sumber data berbeda');
+  await expect(summary).toContainText('validasi lintas sumber belum terpenuhi');
+  await expect(summary).not.toContainText('Hasil perlu ditinjau');
+  await expect(summary).not.toContainText('100%');
+  await expect(summary).toContainText('Skor dukungan ekspansi:');
 });
 
 test('motion is stable while polling, rapid navigation clears overlays, and reduced motion disables camera animation', async ({

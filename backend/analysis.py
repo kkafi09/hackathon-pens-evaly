@@ -137,6 +137,7 @@ class RunStore:
     def list(self, aid, dataset_hash):
         with self.db.connect() as connection:
             rows = connection.execute(select(runs.c.payload).where(runs.c.account_id == aid).order_by(runs.c.created_at.desc())).scalars().all()
+        rows = [explain_run(r) for r in rows]
         return [{k: r[k] for k in ('id', 'account_id', 'created_at', 'status', 'model', 'dataset_hash', 'rubric_version')} |
                 {'stale': r['dataset_hash'] != dataset_hash, 'gateway': gateway(r)} for r in rows]
 
@@ -155,24 +156,35 @@ class RunStore:
         if query.strip():
             conditions.append(or_(runs.c.account_id.contains(query.strip(), autoescape=True),
                 runs.c.payload['account_name'].as_string().contains(query.strip(), autoescape=True)))
+        derived_filter = status in ('done', 'review')
         if status:
-            conditions.append(runs.c.status == status)
+            conditions.append(runs.c.status.in_(['done', 'review']) if derived_filter else runs.c.status == status)
         with self.db.connect() as connection:
             total = connection.execute(select(func.count()).select_from(runs).where(*conditions)).scalar()
             # Keep large JSON snapshots out of MySQL's filesort buffer.
-            ids = connection.execute(select(runs.c.id).where(*conditions)
-                .order_by(runs.c.created_at.desc(), runs.c.id.desc()).limit(limit).offset(offset)).scalars().all()
+            selection = select(runs.c.id).where(*conditions).order_by(runs.c.created_at.desc(), runs.c.id.desc())
+            if not derived_filter:
+                selection = selection.limit(limit).offset(offset)
+            ids = connection.execute(selection).scalars().all()
             payloads = connection.execute(select(runs.c.id, runs.c.payload)
                 .where(runs.c.id.in_(ids))).all() if ids else []
             by_id = {row.id: row.payload for row in payloads}
             rows = [by_id[rid] for rid in ids if rid in by_id]
+        rows = [explain_run(row) for row in rows]
+        if derived_filter:
+            rows = [row for row in rows if row['status'] == status]
+            total = len(rows)
+            rows = rows[offset:offset+limit]
         items = []
         for row in rows:
             result = row.get('result') or {}
+            summary = result.get('validation_summary') or {}
             items.append({**{key: row.get(key) for key in ('id', 'account_id', 'account_name', 'created_at', 'status', 'model', 'dataset_hash', 'rubric_version')},
-                'gateway': gateway(row), 'title': result.get('title'), 'intent_label': result.get('intent_label'),
+                'gateway': gateway(row), 'title': summary.get('title', result.get('title')), 'intent_label': result.get('intent_label'),
+                'validation_summary': summary or None,
+                'expansion_score': result.get('expansion_score'),
                 'net_annual_scenario': (result.get('calculation') or {}).get('net_annual_scenario'),
-                'action_label': result.get('action_label')})
+                'action_label': summary.get('action_label', result.get('action_label'))})
         return {'items': items, 'total': total, 'limit': limit, 'offset': offset}
 
 

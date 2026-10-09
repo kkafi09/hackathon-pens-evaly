@@ -203,3 +203,9 @@ bun run test:e2e
 ```
 
 Tests use controlled Jev responses without paid API calls. Point `TEST_DATABASE_URL` and `DATABASE_URL` to a schema ending in `_test`, and leave the OpenRouter key empty for the Playwright backend.
+
+To avoid reusing a running development or production preview, set `CI=1`, `E2E_BACKEND_PORT=8001`, and `E2E_FRONTEND_PORT=5174` for browser tests. The Vite test proxy follows `E2E_BACKEND_PORT`.
+
+The conclusion also includes **Skor dukungan ekspansi** from all applicable rubric parameters using [expansion-score-v1.0](docs/EXPANSION_SCORE.md). The OI/EP/FE/BR/PC group weights are 30/30/15/20/5; code verifies evidence, finances and neutral pipeline applicability before publishing a score. `result.expansion_score` exposes the group scores, all 19 parameter contributions and limits. The same score is used by the panel, reports and exports without model calls or history rewrites.
+
+The 19 validation questions remain `expansion-v2.0`. Conclusions use the separately versioned `validation-v1.0` rules in [RUBRIK_EVALUASI.md](RUBRIK_EVALUASI.md). A completed evaluation is not a guarantee that an opportunity will succeed. OI-3 confidence appears only in parameter details. A single supporting source may complete with a limitation; financial uncertainty and invalid evidence require review. Reports and exports use the same derived `result.validation_summary`, including separate supporting-record, source and evaluated-record counts. Older v2 results are adapted on read without rewriting stored history or calling the model.

@@ -91,7 +91,7 @@ def get_run(rid):
         raise HTTPException(404, 'Hasil tidak ditemukan')
     run['gateway'] = gateway(run)
     run['stale'] = run['dataset_hash'] != dataset().hash
-    return run if 'review_reasons' in run and 'next_steps' in run else explain_run(run)
+    return explain_run(run)
 
 
 @app.get('/api/health')
@@ -209,22 +209,36 @@ def export(rid: str, format: str):
     if not result:
         raise HTTPException(409, 'Analisis belum memiliki hasil akhir')
     calc = result['calculation']
+    summary = result.get('validation_summary') or {}
+    score = result.get('expansion_score')
     if format == 'csv':
         stream = io.StringIO(newline='')
-        writer = csv.DictWriter(stream, fieldnames=['account_id', 'name', 'has_opportunity', 'intent', 'additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario', 'action', 'owner', 'evidence_ids', 'assumptions', 'gateway', 'provenance', 'review_reasons', 'next_steps', 'rubric_version', 'rubric', 'evidence_paths'])
+        writer = csv.DictWriter(stream, fieldnames=['account_id', 'name', 'has_opportunity', 'intent', 'additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario', 'action', 'owner', 'evidence_ids', 'assumptions', 'gateway', 'provenance', 'review_reasons', 'next_steps', 'rubric_version', 'rubric', 'evidence_paths', 'validation_status', 'title', 'signal_type', 'estimate_label', 'limitations', 'validation_summary', 'expansion_score_value', 'expansion_score_display', 'expansion_score'])
         writer.writeheader()
         writer.writerow({'account_id': run['account_id'], 'name': run['account_name'], 'has_opportunity': result['has_opportunity'],
-                         'intent': result['intent_label'], **{k: calc[k] for k in ('additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario')},
-                         'action': result['action_label'], 'owner': (result['owner'] or {}).get('nama'), 'evidence_ids': ';'.join(result['evidence_ids']),
+                         'intent': '' if summary else result['intent_label'], **{k: calc[k] for k in ('additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario')},
+                         'action': summary.get('action_label', result['action_label']), 'owner': (result['owner'] or {}).get('nama'), 'evidence_ids': ';'.join(result['evidence_ids']),
+                         'validation_status': summary.get('status', run['status']), 'title': summary.get('title', result['title']),
+                         'signal_type': summary.get('signal_type'), 'estimate_label': summary.get('estimate_label'),
+                         'limitations': '; '.join(summary.get('limitations', [])), 'validation_summary': json.dumps(summary, ensure_ascii=False),
+                         'expansion_score_value': score.get('value') if score else None,
+                         'expansion_score_display': score.get('display_value') if score else None,
+                         'expansion_score': json.dumps(score, ensure_ascii=False),
                          'rubric_version': run['rubric_version'], 'rubric': json.dumps(run.get('rubric', {}), ensure_ascii=False), 'evidence_paths': json.dumps(result.get('evidence_paths', []), ensure_ascii=False),
                          'review_reasons': json.dumps(run['review_reasons'], ensure_ascii=False), 'next_steps': json.dumps(run['next_steps'], ensure_ascii=False), 'assumptions': '; '.join(calc['assumptions']), 'gateway': gateway(run), 'provenance': json.dumps({'supporting': result.get('provenance', []), 'evaluated': result.get('evaluated_provenance', [])}, ensure_ascii=False)})
         content, media, suffix = '\ufeff'+stream.getvalue(), 'text/csv; charset=utf-8', 'csv'
     elif format == 'md':
-        content = f"# Account Expansion: {run['account_name']} ({run['account_id']})\n\n{result['title']}\n\n"
+        content = f"# Account Expansion: {run['account_name']} ({run['account_id']})\n\n{summary.get('title', result['title'])}\n\n"
+        if score:
+            from .expansion_score import markdown_score
+            content += markdown_score(score)
+        if summary:
+            content += f"{summary['summary']}\n\n- Status validasi: {summary['status']}\n- Aturan kesimpulan: {summary['version']}\n- Jenis sinyal: {summary['signal_type']}\n- Bukti: {summary['supporting_record_count']} record pendukung; {summary['source_count']} sumber data berbeda; {summary['evaluated_record_count']} record dievaluasi\n- Estimasi: {summary['estimate_label']}\n\n"
+            content += '\n'.join('- '+note for note in summary['limitations']) + '\n\n'
         content += f"- Evaluasi: {run['created_at']}\n- Model: {run['model']}\n- Rubrik: {run['rubric_version']}\n- Hash dataset: {run['dataset_hash']}\n- Snapshot: {run['snapshot']}\n- Berbeda versi data: {run['stale']}\n\n"
-        content += f"## Hasil\n\n- Niat: {result['intent_label'] or 'Belum dinilai'}\n- Tambahan outlet: {calc['additional_outlets']}\n- Target: {calc['target_outlets']}\n- Bruto annualized: {calc['gross_annual']}\n- Neto skenario: {calc['net_annual_scenario']}\n- Formula: {calc['formula']}\n- Tindakan: {result['action_label']}\n- Owner: {(result['owner'] or {}).get('nama', 'Belum ditentukan')}\n\n"
+        content += f"## Hasil\n\n- Tambahan outlet: {calc['additional_outlets']}\n- Target: {calc['target_outlets']}\n- Bruto annualized: {calc['gross_annual']}\n- Neto skenario: {calc['net_annual_scenario']}\n- Formula: {calc['formula']}\n- Tindakan: {summary.get('action_label', result['action_label'])}\n- Owner: {(result['owner'] or {}).get('nama', 'Belum ditentukan')}\n\n"
         content += '## Yang perlu ditinjau\n\n' + ('\n'.join('- '+x['message'] for x in run['review_reasons']) or 'Tidak ada pemicu review pada hasil ini.') + '\n\n'
-        content += '## Langkah berikutnya\n\n' + '\n'.join(f"- {x['action']} | Owner: {x['owner']} | Konfirmasi: {'; '.join(x['confirmations'])} | Hasil yang diharapkan: {x['expected_outcome']}" for x in run['next_steps']) + '\n\n'
+        content += ('## Langkah berikutnya — Usulan setelah verifikasi\n\n' if summary.get('status') == 'review' else '## Langkah berikutnya\n\n') + '\n'.join(f"- {x['action']} | Owner: {x['owner']} | Konfirmasi: {'; '.join(x['confirmations'])} | Hasil yang diharapkan: {x['expected_outcome']}" for x in run['next_steps']) + '\n\n'
         content += '## Asumsi dan perhatian\n\n' + '\n'.join('- '+x for x in calc['assumptions']+result['concerns'])
         if run.get('rubric'):
             content += '\n\n## Evaluasi rubrik\n\n'

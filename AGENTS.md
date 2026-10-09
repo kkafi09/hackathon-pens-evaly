@@ -36,6 +36,10 @@ Provenance merekam snapshot semua record yang dikirim sebelum memanggil model. B
 
 Penjelasan review dan langkah berikutnya berasal dari keputusan tersimpan melalui template kode, tanpa model tambahan. Pertahankan aturan review dan batas confidence 60%; bedakan confidence, probabilitas pilihan, dan catatan bisnis. Simpan review_reasons/next_steps pada run baru; turunkan pada pembacaan hasil lama tanpa menulis ulang history. Jangan mengarang jadwal, harga upgrade, approval, atau komitmen pelanggan.
 
+Kesimpulan v2 memakai `validation_summary` dengan aturan `validation-v1.0`; OI-3 dan confidence niat hanya di detail parameter. Ikuti aturan status, estimasi dan bukti lintas sumber dalam RUBRIK_EVALUASI.md. Satu sumber boleh selesai dengan catatan; jawaban negatif bukan otomatis review. Panel, report, ekspor dan replay harus menampilkan kesimpulan konsisten tanpa menulis ulang history.
+
+Skor gabungan memakai `result.expansion_score` dan `expansion-score-v1.0`; ikuti `docs/EXPANSION_SCORE.md`. Pertahankan 19 parameter asli. Semua nilai, bobot, pembatas dan sumber harus dapat ditelusuri. Skor bukan probabilitas menang dan tidak menghapus status review. Pipeline yang memenuhi syarat netral dikeluarkan dari pembagi; parameter wajib yang hilang tidak boleh dianggap tidak berlaku.
+
 Penghapusan satu hasil wajib memakai konfirmasi berisi akun, waktu dan status. Hanya done/review/failed dapat dihapus. Pemeriksaan status dan DELETE dilakukan dalam satu transaksi MySQL dengan SELECT FOR UPDATE; waiting/running ditolak. Setelah hasil aktif dihapus, kosongkan hasil dan highlight, pertahankan akun serta posisi graph. Pengujian penghapusan menggunakan database sementara atau route terkontrol, tidak menghapus history produksi.
 
 ## Deployment dan database

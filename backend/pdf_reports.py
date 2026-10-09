@@ -1,5 +1,6 @@
 """Readable snapshot-only reports; no model or current-source lookup."""
 from io import BytesIO
+from copy import deepcopy
 from pathlib import Path
 from xml.sax.saxutils import escape
 from datetime import datetime
@@ -28,6 +29,9 @@ def time_label(value):
 
 
 def render(runs):
+    from .explanations import explain_run
+    from .expansion_score import score_label
+    runs = [explain_run(deepcopy(run)) for run in runs]
     stream = BytesIO()
     doc = SimpleDocTemplate(stream, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=45, bottomMargin=45,
                             title='Evaly - Laporan Analisis', author='Evaly')
@@ -43,6 +47,11 @@ def render(runs):
 
     def para(value, style='BodyText'):
         return Paragraph(escape(str(value if value is not None else '-')).replace('\n', '<br/>'), styles[style])
+
+    def conclusion(run):
+        result = run.get('result') or {}
+        title = (result.get('validation_summary') or {}).get('title', result.get('title')) or 'Analisis gagal'
+        return title + ('\n' + score_label(result['expansion_score']) if result.get('expansion_score') else '')
 
     def heading(text, room=130):
         story.extend([CondPageBreak(room), Spacer(1, 12), para(text, 'Heading2')])
@@ -62,13 +71,15 @@ def render(runs):
             para('Setiap baris adalah satu evaluasi tersimpan. Nilai antar-run tidak dijumlahkan karena akun yang sama dapat dievaluasi berulang.')])
         table(['Akun / evaluasi', 'Status', 'Kesimpulan', 'Neto annualized'], [
             [f"{r['account_id']} - {r.get('account_name') or '-'}\n{time_label(r['created_at'])}", STATUS.get(r['status'],r['status']),
-             (r.get('result') or {}).get('title') or 'Analisis gagal', rupiah(((r.get('result') or {}).get('calculation') or {}).get('net_annual_scenario'))]
+             conclusion(r), rupiah(((r.get('result') or {}).get('calculation') or {}).get('net_annual_scenario')) + '\n' + ((r.get('result') or {}).get('validation_summary') or {}).get('estimate_label', '')]
             for r in ordered], [145,75,180,115])
         story.append(PageBreak())
     for index, run in enumerate(ordered):
         if index:
             story.append(PageBreak())
         result = run.get('result') or {}
+        summary = result.get('validation_summary') or {}
+        score = result.get('expansion_score')
         story.extend([para('Evaly - Account Expansion', 'Title'),
             para(f"{run['account_id']} - {run.get('account_name') or run['account_id']}", 'Heading1'),
             para(f"Evaluasi: {time_label(run['created_at'])} | Status: {STATUS.get(run['status'], run['status'])}"),
@@ -80,23 +91,43 @@ def render(runs):
         if not result:
             story.append(para(run.get('error') or 'Tidak tersedia hasil akhir pada evaluasi ini.'))
         else:
-            story.extend([para(result.get('title', '-')), para(f"Tingkat niat: {result.get('intent_label') or 'Belum dinilai'}"),
-                          para(f"Tindakan: {result.get('action_label') or 'Belum ditentukan'}")])
+            story.extend([para(summary.get('title', result.get('title', '-'))),
+                          para(f"Tindakan: {summary.get('action_label', result.get('action_label')) or 'Belum ditentukan'}")])
+            if summary:
+                story.extend([para(summary['summary']), para(f"Jenis sinyal: {summary['signal_type']} | Aturan kesimpulan: {summary['version']}"),
+                    para(f"{summary['supporting_record_count']} record pendukung | {summary['source_count']} sumber data berbeda | {summary['evaluated_record_count']} record dievaluasi")])
+                story.extend(para(note) for note in summary['limitations'])
+        if score:
+            heading('Skor dukungan ekspansi')
+            story.extend([para(score_label(score)), para(score['note']),
+                para(f"Aturan: {score['version']} | Bobot kelompok aktif: {score['active_group_weight']}% | Jawaban valid: {score['evaluated_count']}/{score['applicable_count']}"),
+                para(f"Skor dasar: {score['base_score']} | Batas bukti: {score['cap_score']} | Pembatas: {', '.join(score['limiting_parameter_ids']) or 'Tidak ada'}")])
+            heading('Bagaimana skor dihitung')
+            story.append(para('Skor dasar = rata-rata kelompok berbobot. Skor akhir dibatasi dukungan OI-1, EP-1, dan EP-4. Bobot dibagi rata antarparameter yang berlaku dalam kelompok.'))
+            table(['Kelompok', 'Bobot / efektif', 'Kontribusi'], [[g['label'], f"{g['policy_weight']}% / {g['effective_weight']:.4f}", g['value'] if g['applicable'] else 'Tidak berlaku'] for g in score['groups']], [220,140,155])
+            table(['Parameter', 'Mentah / efektif', 'Bobot / poin', 'Pembatas / sumber'], [[
+                p['id'], f"{p['raw_value']} / {p['effective_value']}" if p['applicable'] else 'Tidak berlaku',
+                f"{p['effective_weight']:.6f} / {p['weighted_points']}", '\n'.join(p['adjustments']) + '\nSumber: ' + '; '.join(p['source_ids'])]
+                for p in score['parameters']], [65,115,100,235])
         heading('Yang perlu ditinjau')
         reasons = run.get('review_reasons', [])
         for reason in reasons:
             story.append(para('- ' + reason['message']))
         if not reasons:
             story.append(para('Tidak ada pemicu review tersimpan.' if result else 'Belum ada penilaian akhir.'))
-        heading('Langkah berikutnya')
+        heading('Usulan setelah verifikasi' if summary.get('status') == 'review' else 'Langkah berikutnya')
         for step in run.get('next_steps', []):
             story.extend([para(f"{step['action']} | Owner: {step['owner']}"),
                 para('Konfirmasi: ' + '; '.join(step['confirmations'])), para('Hasil yang diharapkan: ' + step['expected_outcome'])])
+            for item in step.get('verification', []):
+                story.append(para(f"{item.get('parameter_id') or 'Pemeriksaan'}: {item['message']} | Sumber: {'; '.join(item['source_ids'])}"))
         if not run.get('next_steps'):
             story.append(para('Belum ada tindak lanjut tersimpan.'))
         if result:
             calc = result.get('calculation') or {}
             heading('Estimasi nilai')
+            if summary:
+                story.append(para(summary['estimate_label']))
             table(['Komponen', 'Nilai'], [[label, value] for label,value in [
                 ('Outlet existing', calc.get('existing_outlets', calc.get('current_outlets'))), ('Tambahan outlet', calc.get('additional_outlets')),
                 ('Target outlet', calc.get('target_outlets')), ('Tambahan bruto / tahun', rupiah(calc.get('gross_annual'))),

@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Download, ExternalLink, Trash2 } from 'lucide-react';
 import DeleteRunDialog from './DeleteRunDialog';
-import { api, dateTime, money, statusLabels, type History, type RunStatus } from './types';
+import { ScoreHeadline } from './ExpansionScoreView';
+import {
+  api,
+  dateTime,
+  money,
+  statusLabels,
+  type History,
+  type RunStatus,
+  type ValidationSummary,
+  type ExpansionScore,
+} from './types';
 
 export type ReportRow = History & {
   account_id: string;
   account_name: string;
   title: string | null;
   intent_label: string | null;
+  validation_summary?: ValidationSummary | null;
+  expansion_score?: ExpansionScore | null;
   net_annual_scenario: number | null;
   action_label: string | null;
 };
@@ -182,7 +194,7 @@ export default function ReportPage({
               <th>Akun</th>
               <th>Status</th>
               <th>Kesimpulan</th>
-              <th>Niat</th>
+              <th>Jenis sinyal / validasi</th>
               <th>Neto / tahun</th>
               <th>Tindakan berikutnya</th>
               <th>Rubrik</th>
@@ -219,9 +231,35 @@ export default function ReportPage({
                 <td>
                   {row.title ||
                     (row.status === 'failed' ? 'Analisis gagal' : 'Belum ada hasil akhir')}
+                  {row.validation_summary && <p>{row.validation_summary.summary}</p>}
+                  <ScoreHeadline score={row.expansion_score} />
                 </td>
-                <td>{row.intent_label || 'Belum dinilai'}</td>
-                <td>{money(row.net_annual_scenario)}</td>
+                <td>
+                  {row.validation_summary ? (
+                    <>
+                      {row.validation_summary.signal_type}
+                      <br />
+                      {row.validation_summary.supporting_record_count} record pendukung ·{' '}
+                      {row.validation_summary.source_count} sumber ·{' '}
+                      {row.validation_summary.evaluated_record_count} record dievaluasi
+                      {row.validation_summary.limitations.map((note) => (
+                        <p key={note}>{note}</p>
+                      ))}
+                    </>
+                  ) : row.rubric_version === 'expansion-v2.0' ? (
+                    row.status === 'done' || row.status === 'review' ? (
+                      'Validasi tersimpan belum lengkap'
+                    ) : (
+                      'Belum ada hasil akhir'
+                    )
+                  ) : (
+                    row.intent_label || 'Belum dinilai'
+                  )}
+                </td>
+                <td>
+                  {money(row.net_annual_scenario)}
+                  {row.validation_summary && <small>{row.validation_summary.estimate_label}</small>}
+                </td>
                 <td>{row.action_label || 'Belum ditentukan'}</td>
                 <td>{row.rubric_version}</td>
                 <td>
