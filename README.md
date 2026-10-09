@@ -25,7 +25,7 @@
   <a href="#cara-kerja">Workflow</a> ·
   <a href="#mulai-lokal">Mulai lokal</a> ·
   <a href="#dokumentasi">Dokumentasi</a> ·
-  <a href="#pengujian-dan-batasan">Pengujian</a>
+  <a href="#pengujian">Pengujian</a>
 </p>
 
 ---
@@ -129,7 +129,7 @@ bun run dev
 
 Buka **[localhost:5173](http://127.0.0.1:5173)**. Vite meneruskan `/api` ke backend. Periksa kesiapan database di **[backend readiness](http://127.0.0.1:8000/api/health/ready)**.
 
-Untuk deployment, tersedia image frontend/backend terpisah, CI/CD, dan konfigurasi Coolify. Ikuti [panduan deployment](DEPLOYMENT.md) untuk konfigurasi server serta migration/seeder manual melalui container.
+Untuk deployment, tersedia image frontend/backend terpisah dan CI/CD. Ikuti [panduan deployment](DEPLOYMENT.md) untuk konfigurasi server serta migration/seeder manual melalui container.
 
 <details>
 <summary><strong>Menjalankan hasil build dan melihat API</strong></summary>
@@ -178,13 +178,13 @@ Formula: **tambahan outlet × Rp350.000 × 12 bulan**. Neto memakai skenario dis
 
 ## Dokumentasi
 
-| Panduan                                                    | Isi                                                                                      |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [Deployment dan MySQL](DEPLOYMENT.md)                      | Image Docker, Coolify, environment, migration/seeder container, health check, dan CI/CD. |
-| [Panduan data](docs/DATA_GUIDE.md)                         | Sumber dataset, relasi, aturan bisnis, dan dasar perhitungan.                            |
-| [Jev dan Account Expansion](docs/JEV_ACCOUNT_EXPANSION.md) | Peran Choice, Score, Noul, confidence, serta keterlacakan analisis.                      |
+| Panduan                                                    | Isi                                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Deployment dan MySQL](DEPLOYMENT.md)                      | Image Docker, environment, migration/seeder container, health check, dan CI/CD. |
+| [Panduan data](docs/DATA_GUIDE.md)                         | Sumber dataset, relasi, aturan bisnis, dan dasar perhitungan.                   |
+| [Jev dan Account Expansion](docs/JEV_ACCOUNT_EXPANSION.md) | Peran Choice, Score, Noul, confidence, serta keterlacakan analisis.             |
 
-## Pengujian dan batasan
+## Pengujian
 
 Frontend menggunakan **Oxlint** dan **Oxfmt**. Jalankan pemeriksaan lint, format, dan build dengan:
 
@@ -201,10 +201,3 @@ bun run test:e2e
 ```
 
 Tes memakai respons Jev terkontrol tanpa panggilan berbayar. Gunakan `TEST_DATABASE_URL` dan `DATABASE_URL` menuju schema berakhiran `_test`, dengan key OpenRouter kosong untuk backend Playwright.
-
-**Cara membaca hasil:** confidence menyatakan kepastian penilaian model, bukan peluang transaksi berhasil. Confidence berbeda dari probabilitas pilihan. Confidence di bawah 60%, pilihan tertinggi seri, atau bukti ambigu dapat memerlukan review; alasan konkretnya ditampilkan terpisah dari catatan bisnis.
-
-- Kualitas Jev pada data bisnis berbahasa Indonesia perlu dievaluasi tersendiri; tes otomatis memverifikasi alur aplikasi.
-- Angka outlet ambigu tidak dipakai sebagai nilai pasti. Jadwal, approval, harga upgrade, dan komitmen pelanggan yang belum ada tidak dibuat.
-- Tiket terbuka tidak otomatis menghambat ekspansi. Paket Enterprise tanpa batas kapasitas tidak berarti outlet tambahan gratis.
-- Penghapusan riwayat bersifat permanen untuk satu hasil beserta log lokal. Proses aktif tidak dapat dihapus; dataset sumber tetap utuh.
