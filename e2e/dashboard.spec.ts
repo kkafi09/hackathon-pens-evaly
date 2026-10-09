@@ -137,6 +137,7 @@ test('completed analysis displays values, evidence and exports', async ({ page }
   await page.getByRole('menuitem', { name: /Account Expansion/ }).click();
   await page.getByRole('button', { name: 'Jalankan analisis baru' }).click();
   await page.getByRole('button', { name: 'Buka hasil analisis' }).click();
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
   await expect(page.getByTestId('entity-I0300')).toHaveAttribute('data-proof-role', 'expansion');
   await expect(page.getByTestId('entity-K-C06')).toHaveAttribute('data-proof-role', 'calculation');
   await expect(page.locator('.entity.dimmed').first()).toBeVisible();
@@ -221,8 +222,8 @@ test('failed API is visible and real stored responses can be replayed', async ({
   await expect(page.getByRole('alert')).toContainText('OPENROUTER_API_KEY');
   await page.getByRole('button', { name: /Lihat hasil tersimpan/ }).click();
   await page.locator('.history-list').getByRole('button').first().click();
-  await expect(page.getByText('Pemutaran ulang hasil', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Hasil ini menggunakan versi dataset berbeda/)).toBeVisible();
+  await expect(page.locator('.run-status')).toBeVisible();
+  await expect(page.getByText(/Versi dataset berbeda/)).toBeVisible();
 });
 
 test('mobile workflow is usable without overflowing viewport', async ({ page }) => {

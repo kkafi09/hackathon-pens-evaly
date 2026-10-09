@@ -1,6 +1,15 @@
 import { money, type Run, type ReviewReason, type NextStep } from './types';
+import { ChevronDown } from 'lucide-react';
 
-export function AnalysisSummary({ run, onDetails }: { run: Run; onDetails: () => void }) {
+export function AnalysisSummary({
+  run,
+  onDetails,
+  expanded,
+}: {
+  run: Run;
+  onDetails: () => void;
+  expanded: boolean;
+}) {
   const result = run.result;
   if (!result) return null;
   const reasons: ReviewReason[] = run.review_reasons || result.review_reasons || [];
@@ -31,8 +40,14 @@ export function AnalysisSummary({ run, onDetails }: { run: Run; onDetails: () =>
         Estimasi merupakan skenario, bukan pendapatan pasti. Confidence adalah kepastian penilaian
         model, bukan probabilitas deal menang.
       </small>
-      <button className="primary" onClick={onDetails}>
-        Lihat penjelasan hasil
+      <button
+        className="primary"
+        onClick={onDetails}
+        aria-expanded={expanded}
+        aria-controls="analysis-explanation"
+      >
+        {expanded ? 'Tutup penjelasan' : 'Lihat penjelasan hasil'}
+        <ChevronDown size={15} className={expanded ? 'rotate' : ''} />
       </button>
     </section>
   );
@@ -60,7 +75,8 @@ export default function ResultGuidance({
                 className="evidence-link"
                 onClick={() => onStage(reason.stage, reason.source_ids)}
               >
-                Buka tahap terkait
+                Buka tahap:{' '}
+                {run.steps.find((step) => step.id === reason.stage)?.title || 'Kumpulkan konteks'}
               </button>
             </article>
           ))

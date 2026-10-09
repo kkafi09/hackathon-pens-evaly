@@ -2677,6 +2677,62 @@
 }
 .full-canvas .workflow-panel {
   max-width: min(60%, calc(100% - 370px));
+  container-type: inline-size;
+}
+.panel-tabs {
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
+}
+.panel-tabs button {
+  flex-shrink: 0;
+}
+.panel-scroll {
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+}
+.run-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-bottom: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.run-status strong {
+  color: var(--ink);
+}
+.run-status .stale-note {
+  flex-basis: 100%;
+  color: var(--warning);
+}
+.return-explanation {
+  margin: 14px 0;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--raised);
+}
+#analysis-explanation-heading {
+  margin: 20px 0 12px;
+}
+@container (max-width: 480px) {
+  .run-control > button,
+  .proof-controls > button,
+  .export-row > a {
+    width: 100%;
+  }
+  .step-toggle {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .step-toggle > div:first-child {
+    min-width: 0;
+  }
+  .value-grid {
+    grid-template-columns: 1fr;
+  }
 }
 @media (max-width: 849px) {
   .full-canvas .workflow-panel {

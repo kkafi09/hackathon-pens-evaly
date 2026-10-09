@@ -37,9 +37,7 @@ test('v2 has nineteen evaluations, group evidence and preserves the graph viewpo
   await expect(page.locator('.workflow-step')).toHaveCount(7);
   expect(evaluations).toBe(0);
   await page.getByRole('button', { name: 'Jalankan analisis baru' }).click();
-  await expect(page.getByRole('region', { name: 'Ringkasan analisis' })).toContainText(
-    /Rp\s*25\.200\.000/,
-  );
+  await expect(page.getByRole('region', { name: 'Ringkasan analisis' })).toHaveCount(0);
   const groups = [
     ['Identifikasi peluang', 'OI', 4],
     ['Estimasi nilai', 'FE', 3],
@@ -55,9 +53,10 @@ test('v2 has nineteen evaluations, group evidence and preserves the graph viewpo
       await expect(page.getByTestId(`rubric-${prefix}-${i}`)).toBeVisible();
     await expect(page.locator('.react-flow__viewport')).toHaveAttribute('style', before!);
   }
-  await page.getByRole('button', { name: 'Sorot data EP-1', exact: true }).click();
+  await page.getByRole('button', { name: 'Sorot sumber di graph EP-1', exact: true }).click();
   await expect(page.getByTestId('entity-I0253')).toHaveAttribute('data-proof-role', 'context');
   await page.getByRole('button', { name: 'Buka hasil analisis', exact: true }).click();
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
   await expect(page.getByRole('region', { name: 'Evaluasi rubrik' })).toBeVisible();
   await page
     .getByRole('region', { name: 'Evaluasi rubrik' })
@@ -93,6 +92,13 @@ test('motion is stable while polling, rapid navigation clears overlays, and redu
   });
   await page.waitForTimeout(1200);
   await expect(panel).toHaveAttribute('data-poll-identity', identity!);
+  await page.locator('.close-icon').focus();
+  await page.locator('.panel-scroll').evaluate((el) => {
+    el.scrollTop = 120;
+  });
+  await page.waitForTimeout(1200);
+  await expect(page.locator('.close-icon')).toBeFocused();
+  expect(await page.locator('.panel-scroll').evaluate((el) => el.scrollTop)).toBe(120);
   await page.getByRole('button', { name: /Data & bukti/ }).click();
   await page.getByRole('button', { name: 'Workflow analisis', exact: true }).click();
   await expect(page.getByText('ALUR PENALARAN')).toBeVisible();

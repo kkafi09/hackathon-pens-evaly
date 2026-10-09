@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -8,7 +8,6 @@ import {
   ExternalLink,
   History as HistoryIcon,
   Play,
-  RotateCcw,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -16,7 +15,7 @@ import {
 } from 'lucide-react';
 import EvidenceView from './EvidenceView';
 import RubricView from './RubricView';
-import { Collapse, useAnimatedTab } from './motion';
+import { Collapse, useAnimatedTab, useReducedMotion } from './motion';
 import ResultGuidance, { AnalysisSummary } from './ResultGuidance';
 import DeleteRunDialog from './DeleteRunDialog';
 import {
@@ -63,6 +62,7 @@ const classNames: Record<string, string> = {
 export default function WorkflowPanel({
   account,
   context,
+  contextError = '',
   jevConfigured,
   onClose,
   onEvidence,
@@ -77,6 +77,7 @@ export default function WorkflowPanel({
   exiting?: boolean;
   account: GraphItem;
   context: Context | null;
+  contextError?: string;
   jevConfigured: boolean;
   onClose: () => void;
   onEvidence: (id: string) => void;
@@ -94,7 +95,51 @@ export default function WorkflowPanel({
   const [tab, setTab] = useState('workflow');
   const animatedTab = useAnimatedTab(tab);
   const visibleTab = animatedTab.visible;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const navigationTarget = useRef<string | null>(null);
+  const [navigationVersion, setNavigationVersion] = useState(0);
+  const [explanationOpen, setExplanationOpen] = useState(false);
+  const [returnToExplanation, setReturnToExplanation] = useState(false);
+  const reducedMotion = useReducedMotion();
+  function navigate(next: string, target: string | null = null) {
+    navigationTarget.current = target;
+    setTab(next);
+    setNavigationVersion((version) => version + 1);
+  }
+  useEffect(() => {
+    if (animatedTab.phase !== 'idle') return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const selector = navigationTarget.current;
+    if (!selector) {
+      container.scrollTop = 0;
+      return;
+    }
+    const focusTarget = () => {
+      if (navigationTarget.current !== selector) return;
+      const target = container.querySelector<HTMLElement>(selector);
+      if (!target) return;
+      container.scrollTo({
+        top:
+          target.getBoundingClientRect().top -
+          container.getBoundingClientRect().top +
+          container.scrollTop -
+          12,
+        behavior: reducedMotion ? 'instant' : 'smooth',
+      });
+      target.focus({ preventScroll: true });
+      navigationTarget.current = null;
+    };
+    // Collapsing content changes scroll height; wait for its 250ms transition.
+    if (reducedMotion) {
+      focusTarget();
+      return;
+    }
+    const timer = setTimeout(focusTarget, 260);
+    return () => clearTimeout(timer);
+  }, [visibleTab, animatedTab.phase, navigationVersion, reducedMotion]);
   const [showHistory, setShowHistory] = useState(false);
+  const [sourceMode, setSourceMode] = useState<'records' | 'support' | 'all'>('records');
   const [proofMode, setProofMode] = useState<'auto' | 'stage' | 'all' | 'support' | 'question'>(
     'auto',
   );
@@ -103,6 +148,19 @@ export default function WorkflowPanel({
   const [deleteError, setDeleteError] = useState('');
   const running = run?.status === 'running' || run?.status === 'waiting';
   const runId = run?.id;
+  const chosenRunId = useRef<string | undefined>(undefined);
+  const chooseRun = useCallback((next: Run | null) => {
+    if (next?.id !== chosenRunId.current) {
+      setExplanationOpen(false);
+      setReturnToExplanation(false);
+      setSourceMode('records');
+      setQuestionIds([]);
+      navigationTarget.current = null;
+    }
+    chosenRunId.current = next?.id;
+    setRun(next);
+  }, []);
+
   useEffect(() => {
     onRunChange?.(runId || null);
   }, [runId, onRunChange]);
@@ -137,9 +195,9 @@ export default function WorkflowPanel({
     api<Run>(`/expansion-runs/${initialRunId}`)
       .then((next) => {
         if (!live) return;
-        setRun(next);
+        chooseRun(next);
         setReplay(!['running', 'waiting'].includes(next.status));
-        setTab(next.result ? 'results' : 'workflow');
+        navigate(next.result && ['done', 'review'].includes(next.status) ? 'results' : 'workflow');
       })
       .catch((e) => {
         if (live) setError(e.message);
@@ -147,7 +205,7 @@ export default function WorkflowPanel({
     return () => {
       live = false;
     };
-  }, [initialRunId]);
+  }, [initialRunId, chooseRun]);
   useEffect(() => {
     if (!running || replay || !runId) return;
     let live = true;
@@ -175,10 +233,10 @@ export default function WorkflowPanel({
     setBusy(true);
     setError('');
     setReplay(false);
-    setTab('workflow');
+    navigate('workflow');
     setProofMode('auto');
     try {
-      setRun(await api<Run>(`/accounts/${account.id}/expansion-runs`, { method: 'POST' }));
+      chooseRun(await api<Run>(`/accounts/${account.id}/expansion-runs`, { method: 'POST' }));
       setExpanded(0);
     } catch (e) {
       setError((e as Error).message);
@@ -191,10 +249,10 @@ export default function WorkflowPanel({
     setError('');
     try {
       const next = await api<Run>(`/expansion-runs/${id}`);
-      setRun(next);
+      chooseRun(next);
       setProofMode('auto');
       setReplay(!['running', 'waiting'].includes(next.status));
-      setTab('workflow');
+      navigate(next.result && ['done', 'review'].includes(next.status) ? 'results' : 'workflow');
       setShowHistory(false);
     } catch (e) {
       setError((e as Error).message);
@@ -214,10 +272,10 @@ export default function WorkflowPanel({
       await api<void>(`/expansion-runs/${deleteTarget.id}`, { method: 'DELETE' });
       setHistory((entries) => entries.filter((entry) => entry.id !== deleteTarget.id));
       if (run?.id === deleteTarget.id) {
-        setRun(null);
+        chooseRun(null);
         setReplay(false);
         setExpanded(0);
-        setTab('workflow');
+        navigate('workflow');
         setProofMode('auto');
         setError('');
       }
@@ -228,11 +286,16 @@ export default function WorkflowPanel({
       setDeleting(false);
     }
   }
-  function showReviewStage(stage: string) {
+  function showReviewStage(stage: string, ids: string[]) {
     const index = run?.steps.findIndex((step) => step.id === stage) ?? -1;
     setExpanded(index >= 0 ? index : 0);
-    setTab('workflow');
-    setProofMode('stage');
+    setReturnToExplanation(true);
+    setQuestionIds(ids);
+    setProofMode(ids.length ? 'question' : 'stage');
+    navigate(
+      'workflow',
+      `#workflow-stage-${CSS.escape(run?.steps[index >= 0 ? index : 0]?.id || '')}`,
+    );
   }
   const result = run?.result;
   const calc = result?.calculation;
@@ -262,14 +325,22 @@ export default function WorkflowPanel({
         applicable: true,
       }));
   }
-  const supporting = proofMode === 'support' || (proofMode === 'auto' && !!result);
+  const supporting =
+    proofMode === 'support' || (proofMode === 'auto' && !!result && visibleTab === 'results');
   const proof = useMemo<Evidence[]>(() => {
     if (!run) return [];
     if (proofMode === 'question')
       return (
         run.result?.evaluated_provenance || run.steps.flatMap((step) => step.provenance || [])
       ).filter((item: Evidence) => questionIds.includes(item.id));
-    if (proofMode === 'all') return run.result?.evaluated_provenance || [];
+    if (proofMode === 'all')
+      return (
+        run.result?.evaluated_provenance || [
+          ...new Map(
+            run.steps.flatMap((step) => step.provenance || []).map((item) => [item.id, item]),
+          ).values(),
+        ]
+      );
     if (supporting) return run.result?.provenance || [];
     return run.steps[expanded ?? 0]?.provenance || [];
   }, [run, expanded, proofMode, supporting, questionIds]);
@@ -304,16 +375,28 @@ export default function WorkflowPanel({
         </div>
       </div>
       <div className="panel-tabs">
-        <button className={tab === 'workflow' ? 'active' : ''} onClick={() => setTab('workflow')}>
+        <button
+          className={tab === 'workflow' ? 'active' : ''}
+          onClick={() => {
+            navigate('workflow');
+            setProofMode('stage');
+          }}
+        >
           Workflow analisis
         </button>
-        <button className={tab === 'sources' ? 'active' : ''} onClick={() => setTab('sources')}>
+        <button
+          className={tab === 'sources' ? 'active' : ''}
+          onClick={() => {
+            navigate('sources');
+            if (sourceMode !== 'records') setProofMode(sourceMode);
+          }}
+        >
           Data & bukti <span>{context?.interactions.length || 0}</span>
         </button>
         <button
           className={tab === 'results' ? 'active' : ''}
           onClick={() => {
-            setTab('results');
+            navigate('results');
             setProofMode('support');
           }}
           disabled={!result}
@@ -321,143 +404,97 @@ export default function WorkflowPanel({
           Hasil analisis
         </button>
       </div>
-      <div className={`panel-scroll tab-${animatedTab.phase}`}>
-        {run && result && !running && (
-          <AnalysisSummary
-            run={run}
-            onDetails={() => {
-              setTab('results');
-              setProofMode('support');
-            }}
-          />
-        )}
+      <div ref={scrollRef} className={`panel-scroll tab-${animatedTab.phase}`}>
         {run && (
-          <button
-            className="delete-current"
-            disabled={!['done', 'review', 'failed'].includes(run.status) || busy}
-            onClick={() => requestDelete(run)}
-          >
-            <Trash2 size={14} /> Hapus hasil ini
-          </button>
-        )}
-
-        <div className="run-control">
-          <div>
-            <span className="eyebrow">JEV · SYSTEM ONE</span>
-            <h3>Dari konteks menjadi keputusan.</h3>
-            <p>Lihat sumber, pertanyaan, dan hasil pada setiap tahap.</p>
-          </div>
-          <button className="primary" disabled={busy || running || !context} onClick={start}>
-            {busy || running ? <span className="spinner" /> : <Play size={14} />}
-            {running ? 'Analisis berjalan' : 'Jalankan analisis baru'}
-          </button>
-          <button
-            className="secondary"
-            onClick={() => setShowHistory(!showHistory)}
-            disabled={!history.length}
-          >
-            <HistoryIcon size={14} /> Lihat hasil tersimpan <span>{history.length}</span>
-          </button>
-        </div>
-        {!jevConfigured && (
-          <div className="notice">
-            <ShieldCheck size={16} />
+          <div className="run-status" role="status">
+            <strong>{statusLabels[run.status]}</strong>
             <span>
-              API key OpenRouter belum diatur. Data sumber tetap tersedia. Analisis baru memerlukan
-              konfigurasi backend; hasil tersimpan dapat dibuka jika tersedia.
+              {replay ? 'Pemutaran ulang hasil · ' : ''}
+              {dateTime(run.created_at)}
             </span>
+            {run.stale && (
+              <span className="stale-note">Versi dataset berbeda; periksa bukti tersimpan.</span>
+            )}
           </div>
         )}
-        {showHistory && (
-          <div className="history-list">
-            <h4>Riwayat evaluasi akun</h4>
-            {history.map((h) => (
-              <div className="history-row" key={h.id}>
-                <button disabled={busy} onClick={() => load(h.id)}>
-                  <Clock3 size={15} />
-                  <span>
-                    {dateTime(h.created_at)}
-                    <small>
-                      {h.gateway || 'typesafe'} · {h.model || 'Belum ada respons Jev'} ·{' '}
-                      {statusLabels[h.status]} {h.stale ? '· Berbeda versi data' : ''}
-                    </small>
-                  </span>
-                  <ArrowRight size={14} />
-                </button>
-                <button
-                  className="delete-history"
-                  aria-label={`Hapus hasil ${dateTime(h.created_at)}`}
-                  disabled={!['done', 'review', 'failed'].includes(h.status) || busy}
-                  onClick={() => requestDelete(h)}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {replay && run && (
-          <div className="notice replay">
-            <RotateCcw size={16} />
-            <span>
-              <strong>Pemutaran ulang hasil</strong>
-              <br />
-              Evaluasi asli: {dateTime(run.created_at)} · {run.gateway || 'typesafe'} ·{' '}
-              {run.model || 'Belum ada respons Jev'}
-            </span>
-          </div>
-        )}
-        {run?.stale && (
-          <div className="notice warning">
-            Hasil ini menggunakan versi dataset berbeda. Bukti pada graph saat ini mungkin sudah
-            berubah; periksa state asli pada detail tahap.
-          </div>
-        )}
-        {(error || run?.error) && (
-          <div className="error-box" role="alert">
-            <strong>Analisis belum dapat diselesaikan</strong>
-            <p>{error || run?.error}</p>
-          </div>
-        )}
-        {tab !== 'results' && (
+        {visibleTab === 'workflow' && (
           <>
-            {' '}
-            {run && (
-              <>
-                <div className="proof-controls">
-                  <button
-                    aria-pressed={supporting}
-                    onClick={() => setProofMode('support')}
-                    disabled={!result}
-                  >
-                    Bukti pendukung hasil
-                  </button>
-                  <button
-                    aria-pressed={proofMode === 'all'}
-                    onClick={() => setProofMode('all')}
-                    disabled={!result}
-                  >
-                    Semua data yang dievaluasi
-                  </button>
-                </div>
-                {!run.steps.some((step) => step.provenance) && (
-                  <p className="detail-note">
-                    Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap tersedia
-                    pada log dan hasil tersimpan.
-                  </p>
-                )}
-                <EvidenceView
-                  items={proof}
-                  supporting={supporting}
-                  onEvidence={onEvidence}
-                  onFocus={onFocusEvidence}
-                />
-              </>
+            <div className="run-control">
+              <div>
+                <span className="eyebrow">JEV · SYSTEM ONE</span>
+                <h3>Dari konteks menjadi keputusan.</h3>
+                <p>Lihat sumber, pertanyaan, dan hasil pada setiap tahap.</p>
+              </div>
+              <button className="primary" disabled={busy || running || !context} onClick={start}>
+                {busy || running ? <span className="spinner" /> : <Play size={14} />}
+                {running ? 'Analisis berjalan' : 'Jalankan analisis baru'}
+              </button>
+              <button
+                className="secondary"
+                onClick={() => setShowHistory(!showHistory)}
+                disabled={!history.length}
+              >
+                <HistoryIcon size={14} /> Lihat hasil tersimpan <span>{history.length}</span>
+              </button>
+            </div>
+            {!jevConfigured && (
+              <div className="notice">
+                <ShieldCheck size={16} />
+                <span>
+                  API key OpenRouter belum diatur. Data sumber tetap tersedia. Analisis baru
+                  memerlukan konfigurasi backend; hasil tersimpan dapat dibuka jika tersedia.
+                </span>
+              </div>
+            )}
+            {showHistory && (
+              <div className="history-list">
+                <h4>Riwayat evaluasi akun</h4>
+                {history.map((h) => (
+                  <div className="history-row" key={h.id}>
+                    <button disabled={busy} onClick={() => load(h.id)}>
+                      <Clock3 size={15} />
+                      <span>
+                        {dateTime(h.created_at)}
+                        <small>
+                          {h.gateway || 'typesafe'} · {h.model || 'Belum ada respons Jev'} ·{' '}
+                          {statusLabels[h.status]} {h.stale ? '· Berbeda versi data' : ''}
+                        </small>
+                      </span>
+                      <ArrowRight size={14} />
+                    </button>
+                    <button
+                      className="delete-history"
+                      aria-label={`Hapus hasil ${dateTime(h.created_at)}`}
+                      disabled={!['done', 'review', 'failed'].includes(h.status) || busy}
+                      onClick={() => requestDelete(h)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(error || run?.error) && (
+              <div className="error-box" role="alert">
+                <strong>Analisis belum dapat diselesaikan</strong>
+                <p>{error || run?.error}</p>
+              </div>
             )}
           </>
         )}
         {visibleTab === 'workflow' && (
           <>
+            {returnToExplanation && (
+              <button
+                className="secondary return-explanation"
+                onClick={() => {
+                  setExplanationOpen(true);
+                  navigate('results', '#analysis-explanation-heading');
+                }}
+              >
+                Kembali ke penjelasan hasil
+              </button>
+            )}
             <div className="section-label">
               <span>ALUR PENALARAN</span>
               <span>{run ? statusLabels[run.status] : 'Siap dijalankan'}</span>
@@ -482,6 +519,7 @@ export default function WorkflowPanel({
                     <div className="step-content">
                       <button
                         className="step-toggle"
+                        id={`workflow-stage-${step.id}`}
                         aria-expanded={expanded === i}
                         onClick={() => {
                           setExpanded(expanded === i ? null : i);
@@ -507,6 +545,15 @@ export default function WorkflowPanel({
                       </button>
                       <Collapse open={expanded === i}>
                         <div className="step-details">
+                          {run && expanded === i && (
+                            <EvidenceView
+                              items={proof}
+                              supporting={supporting}
+                              onEvidence={onEvidence}
+                              onFocus={onFocusEvidence}
+                            />
+                          )}
+
                           {i === 0 && context && (
                             <>
                               <div className="source-grid">
@@ -645,7 +692,7 @@ export default function WorkflowPanel({
               <button
                 className="primary full"
                 onClick={() => {
-                  setTab('results');
+                  navigate('results');
                   setProofMode('support');
                 }}
               >
@@ -654,93 +701,51 @@ export default function WorkflowPanel({
             )}
           </>
         )}
-        {visibleTab === 'sources' && <SourceView context={context} onEvidence={onEvidence} />}
-        {visibleTab === 'results' && result && calc && run && (
-          <section className="analysis-result">
-            <div className="result-heading">
-              <span className="eyebrow">HASIL ANALISIS</span>
-              <h3>{result.title}</h3>
-              <p>{result.intent_label || 'Tidak ada penilaian niat yang cukup jelas.'}</p>
-            </div>
-            <ResultGuidance run={run} onStage={showReviewStage} />
-            <h4>Estimasi nilai</h4>
-            <div className="value-grid">
-              <div>
-                <span>Tambahan outlet</span>
-                <strong>{calc.additional_outlets ?? '—'}</strong>
-              </div>
-              <div>
-                <span>Existing → target</span>
-                <strong>
-                  {calc.current_outlets} → {calc.target_outlets ?? '—'}
-                </strong>
-              </div>
-              <div>
-                <span>Tambahan annualized bruto</span>
-                <strong>{money(calc.gross_annual)}</strong>
-              </div>
-              <div>
-                <span>Neto · skenario diskon tetap</span>
-                <strong>{money(calc.net_annual_scenario)}</strong>
-              </div>
-            </div>
-            <p className="detail-note">
-              {calc.formula || 'Angka belum dapat dipastikan dari bukti tersedia.'}
-            </p>
-            {calc.exceeds_package && (
-              <div className="notice warning">
-                Target melebihi batas paket saat ini. Diskusikan upgrade; harga premium belum
-                dihitung.
+        {visibleTab === 'sources' && (
+          <>
+            {contextError && (
+              <div className="error-box" role="alert">
+                Data sumber belum dapat dimuat: {contextError}
               </div>
             )}
-            <h4>Asumsi & hal yang perlu dikonfirmasi</h4>
-            <ul>
-              {[...calc.assumptions, ...result.concerns].map((x: string, i: number) => (
-                <li key={i}>{x}</li>
-              ))}
-            </ul>
-            {run.rubric && (
-              <section aria-label="Evaluasi rubrik">
-                <h4>Evaluasi rubrik · 19 pertanyaan</h4>
-                {(definition?.steps || [])
-                  .filter((group) => evaluations(group.id).length)
-                  .map((group) => (
-                    <details key={group.id}>
-                      <summary>{group.title}</summary>
-                      <RubricView
-                        items={evaluations(group.id)}
-                        onQuestion={showQuestion}
-                        onEvidence={onEvidence}
-                      />
-                    </details>
-                  ))}
-              </section>
-            )}
-            {!run.rubric && (
-              <p className="detail-note">
-                Hasil rubrik lama. Pertanyaan v2 belum dievaluasi pada hasil ini.
-              </p>
-            )}
-            <h4>Bukti dan detail teknis</h4>{' '}
             {run && (
+              <div className="proof-controls" aria-label="Pilih sumber bukti">
+                <button
+                  aria-pressed={sourceMode === 'records'}
+                  onClick={() => setSourceMode('records')}
+                >
+                  Semua sumber akun
+                </button>
+                <button
+                  aria-pressed={sourceMode === 'support'}
+                  disabled={!result}
+                  onClick={() => {
+                    setSourceMode('support');
+                    setProofMode('support');
+                  }}
+                >
+                  Bukti pendukung hasil
+                </button>
+                <button
+                  aria-pressed={sourceMode === 'all'}
+                  disabled={
+                    !result?.evaluated_provenance?.length &&
+                    !run.steps.some((step) => step.provenance?.length)
+                  }
+                  onClick={() => {
+                    setSourceMode('all');
+                    setProofMode('all');
+                  }}
+                >
+                  Semua data yang dievaluasi
+                </button>
+              </div>
+            )}
+            {sourceMode === 'records' ? (
+              !contextError && <SourceView context={context} onEvidence={onEvidence} />
+            ) : (
               <>
-                <div className="proof-controls">
-                  <button
-                    aria-pressed={supporting}
-                    onClick={() => setProofMode('support')}
-                    disabled={!result}
-                  >
-                    Bukti pendukung hasil
-                  </button>
-                  <button
-                    aria-pressed={proofMode === 'all'}
-                    onClick={() => setProofMode('all')}
-                    disabled={!result}
-                  >
-                    Semua data yang dievaluasi
-                  </button>
-                </div>
-                {!run.steps.some((step) => step.provenance) && (
+                {run && !run.steps.some((step) => step.provenance) && (
                   <p className="detail-note">
                     Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap tersedia
                     pada log dan hasil tersimpan.
@@ -754,33 +759,152 @@ export default function WorkflowPanel({
                 />
               </>
             )}
-            <h4>Jalur bukti</h4>
-            <div className="evidence-path">
-              <Evidence id={account.id} onClick={onEvidence} />
-              <ArrowRight size={13} />
-              {result.evidence_ids.map((id: string) => (
-                <Evidence key={id} id={id} onClick={onEvidence} />
-              ))}
-            </div>
-            {result.precedents?.length > 0 && (
-              <details>
-                <summary>
-                  Preseden pembanding · {result.precedents.length} keputusan akun lain
-                </summary>
-                <p className="detail-note">
-                  Dikirim sebagai konteks pembanding, bukan approval untuk akun ini.
-                </p>
-                {result.precedents.map((d: RecordData) => (
-                  <div className="source-card" key={d.decision_id}>
-                    <strong>
-                      {d.decision_id} · {d.account_id} · {d.keputusan}
-                    </strong>
-                    <p>{d.alasan}</p>
-                    <small>decision_log.csv · {d.tanggal}</small>
+          </>
+        )}
+        {visibleTab === 'results' && result && calc && run && (
+          <section className="analysis-result">
+            <AnalysisSummary
+              run={run}
+              expanded={explanationOpen}
+              onDetails={() => {
+                setExplanationOpen(!explanationOpen);
+                if (!explanationOpen) navigate('results', '#analysis-explanation-heading');
+                else navigationTarget.current = null;
+              }}
+            />
+            <Collapse open={explanationOpen}>
+              <div id="analysis-explanation">
+                <h3 id="analysis-explanation-heading" tabIndex={-1}>
+                  Penjelasan hasil
+                </h3>
+                <ResultGuidance run={run} onStage={showReviewStage} />
+                <h4>Estimasi dan asumsi nilai</h4>
+                <div className="value-grid">
+                  <div>
+                    <span>Tambahan outlet</span>
+                    <strong>{calc.additional_outlets ?? '—'}</strong>
                   </div>
-                ))}
-              </details>
-            )}
+                  <div>
+                    <span>Existing → target</span>
+                    <strong>
+                      {calc.current_outlets} → {calc.target_outlets ?? '—'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Tambahan annualized bruto</span>
+                    <strong>{money(calc.gross_annual)}</strong>
+                  </div>
+                  <div>
+                    <span>Neto · skenario diskon tetap</span>
+                    <strong>{money(calc.net_annual_scenario)}</strong>
+                  </div>
+                </div>
+                <p className="detail-note">
+                  {calc.formula || 'Angka belum dapat dipastikan dari bukti tersedia.'}
+                </p>
+                {calc.exceeds_package && (
+                  <div className="notice warning">
+                    Target melebihi batas paket saat ini. Diskusikan upgrade; harga premium belum
+                    dihitung.
+                  </div>
+                )}
+                <h4>Asumsi & hal yang perlu dikonfirmasi</h4>
+                <ul>
+                  {[...calc.assumptions, ...result.concerns].map((x: string, i: number) => (
+                    <li key={i}>{x}</li>
+                  ))}
+                </ul>
+                {run.rubric && (
+                  <section aria-label="Evaluasi rubrik">
+                    <h4>Evaluasi rubrik · 19 pertanyaan</h4>
+                    {(definition?.steps || [])
+                      .filter((group) => evaluations(group.id).length)
+                      .map((group) => (
+                        <details key={group.id}>
+                          <summary>{group.title}</summary>
+                          <RubricView
+                            items={evaluations(group.id)}
+                            onQuestion={showQuestion}
+                            onEvidence={onEvidence}
+                          />
+                        </details>
+                      ))}
+                  </section>
+                )}
+                {!run.rubric && (
+                  <p className="detail-note">
+                    Hasil rubrik lama. Pertanyaan v2 belum dievaluasi pada hasil ini.
+                  </p>
+                )}
+                <h4>Bukti dan detail teknis</h4>{' '}
+                {run && (
+                  <>
+                    <div className="proof-controls">
+                      <button
+                        aria-pressed={supporting}
+                        onClick={() => setProofMode('support')}
+                        disabled={!result}
+                      >
+                        Bukti pendukung hasil
+                      </button>
+                      <button
+                        aria-pressed={proofMode === 'all'}
+                        onClick={() => setProofMode('all')}
+                        disabled={!result}
+                      >
+                        Semua data yang dievaluasi
+                      </button>
+                    </div>
+                    {!run.steps.some((step) => step.provenance) && (
+                      <p className="detail-note">
+                        Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap
+                        tersedia pada log dan hasil tersimpan.
+                      </p>
+                    )}
+                    <EvidenceView
+                      items={proof}
+                      supporting={supporting}
+                      onEvidence={onEvidence}
+                      onFocus={onFocusEvidence}
+                    />
+                  </>
+                )}
+                <h4>Jalur bukti</h4>
+                <div className="evidence-path">
+                  <Evidence id={account.id} onClick={onEvidence} />
+                  <ArrowRight size={13} />
+                  {result.evidence_ids.map((id: string) => (
+                    <Evidence key={id} id={id} onClick={onEvidence} />
+                  ))}
+                </div>
+                {result.precedents?.length > 0 && (
+                  <details>
+                    <summary>
+                      Preseden pembanding · {result.precedents.length} keputusan akun lain
+                    </summary>
+                    <p className="detail-note">
+                      Dikirim sebagai konteks pembanding, bukan approval untuk akun ini.
+                    </p>
+                    {result.precedents.map((d: RecordData) => (
+                      <div className="source-card" key={d.decision_id}>
+                        <strong>
+                          {d.decision_id} · {d.account_id} · {d.keputusan}
+                        </strong>
+                        <p>{d.alasan}</p>
+                        <small>decision_log.csv · {d.tanggal}</small>
+                      </div>
+                    ))}
+                  </details>
+                )}
+              </div>
+            </Collapse>
+            <button
+              className="delete-current"
+              disabled={!['done', 'review', 'failed'].includes(run.status) || busy}
+              onClick={() => requestDelete(run)}
+            >
+              <Trash2 size={14} /> Hapus hasil ini
+            </button>
             <div className="export-row">
               <a href={`/api/expansion-runs/${run.id}/export/md`} download>
                 <Download size={14} /> Ringkasan Markdown

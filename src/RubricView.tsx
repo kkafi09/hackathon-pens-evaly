@@ -45,9 +45,9 @@ export default function RubricView({
               <button
                 className="evidence-link"
                 onClick={() => onQuestion(item)}
-                aria-label={`Sorot data ${item.id}`}
+                aria-label={`Sorot sumber di graph ${item.id}`}
               >
-                Sorot data yang dievaluasi · {item.source_ids.length} record
+                Sorot sumber di graph · {item.source_ids.length} record
               </button>
               <details>
                 <summary>Record sumber {item.id}</summary>

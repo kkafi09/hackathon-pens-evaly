@@ -185,6 +185,7 @@ export default function App() {
   const [focused, setFocused] = useState<string | null>(null);
   const [detail, setDetail] = useState<GraphData | null>(null);
   const [context, setContext] = useState<Context | null>(null);
+  const [contextError, setContextError] = useState('');
   const [panel, setPanel] = useState(false);
   const [menu, setMenu] = useState<{ entity: GraphItem; x: number; y: number } | null>(null);
   const [inspected, setInspected] = useState<GraphItem | null>(null);
@@ -223,6 +224,7 @@ export default function App() {
     if (id !== focused) {
       setDetail(null);
       setContext(null);
+      setContextError('');
       setError('');
       setProof([]);
       setHighlight('');
@@ -243,7 +245,10 @@ export default function App() {
     let live = true;
     Promise.all([
       api<GraphData>(`/graph?account_id=${focused}`),
-      api<Context>(`/accounts/${focused}/context`),
+      api<Context>(`/accounts/${focused}/context`).catch((e) => {
+        if (live) setContextError(e.message);
+        throw e;
+      }),
     ])
       .then(([g, c]) => {
         if (live) {
@@ -715,6 +720,7 @@ export default function App() {
               exiting={panelPresence.exiting}
               account={account}
               context={context}
+              contextError={contextError}
               jevConfigured={jev}
               onClose={() => {
                 setPanel(false);

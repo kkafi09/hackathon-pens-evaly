@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function setup(page: Page, withActive = false) {
+async function setup(page: Page, withActive = false, withAnother = false) {
   const context = await (await page.request.get('/api/accounts/C02/context')).json();
   const email = context.interactions.find((item: any) => item.interaction_id === 'I0253');
   const reasons = [
@@ -91,6 +91,10 @@ async function setup(page: Page, withActive = false) {
     deletes: 0,
     fail: false,
   };
+  if (withAnother) state.entries.push({ ...run, id: 'another-legacy-run' });
+  await page.route('**/api/expansion-runs/another-legacy-run', (route) =>
+    route.fulfill({ json: state.entries.find((entry) => entry.id === 'another-legacy-run') }),
+  );
   await page.route('**/api/accounts/C02/expansion-runs', (route) =>
     route.fulfill({ json: state.entries }),
   );
@@ -131,9 +135,11 @@ test('readable review separates intent and action, then deletion resets the curr
   await expect(page.getByRole('region', { name: 'Langkah berikutnya' })).toContainText(
     'Lina Marlina',
   );
-  await page.getByRole('button', { name: 'Buka tahap terkait' }).click();
+  await page.getByRole('button', { name: 'Buka tahap: Nilai & tindak lanjut' }).click();
   await expect(page.getByText('ALUR PENALARAN')).toBeVisible();
   await expect(page.getByTestId('entity-I0253')).toHaveAttribute('data-proof-role', 'expansion');
+  await page.getByRole('button', { name: 'Kembali ke penjelasan hasil' }).click();
+  await expect(page.getByRole('heading', { name: 'Penjelasan hasil' })).toBeFocused();
   await page.getByRole('button', { name: 'Hapus hasil ini' }).click();
   const dialog = page.getByRole('dialog', { name: 'Hapus hasil analisis?' });
   await expect(dialog).toContainText('C02');
@@ -180,4 +186,147 @@ test('history deletion preserves results on error and disables active runs', asy
   await dialog.getByRole('button', { name: 'Hapus permanen', exact: true }).click();
   await expect(page.locator('.history-row')).toHaveCount(1);
   await expect(page.locator('.delete-history')).toBeDisabled();
+});
+
+test('sidebar tabs separate content and explanation has a visible destination', async ({
+  page,
+}) => {
+  let calls = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('expansion-runs')) calls++;
+  });
+  await setup(page);
+  await page.getByRole('button', { name: /Lihat hasil tersimpan/ }).click();
+  await page.locator('.history-row > button:first-child').first().click();
+  await expect(page.getByRole('region', { name: 'Ringkasan analisis' })).toBeVisible();
+  await expect(page.getByText('JEV · SYSTEM ONE')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Jalankan analisis baru' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Alasan status analisis' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
+  const heading = page.getByRole('heading', { name: 'Penjelasan hasil' });
+  await expect(heading).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Tutup penjelasan' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await page.getByRole('button', { name: /Data & bukti/ }).click();
+  await expect(page.getByText('Fakta dari data sumber')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ringkasan analisis' })).toHaveCount(0);
+  await expect(page.getByText('JEV · SYSTEM ONE')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Jalankan analisis baru' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Sumber analisis' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Bukti pendukung hasil', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Sumber analisis' })).toHaveCount(1);
+  await expect(page.getByText('Fakta dari data sumber')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Workflow analisis', exact: true }).click();
+  await expect(page.getByText('JEV · SYSTEM ONE')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Ringkasan analisis' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Hasil analisis', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Tutup penjelasan' })).toBeVisible();
+  const viewport = await page.locator('.react-flow__viewport').getAttribute('style');
+  await page.getByRole('button', { name: 'Buka tahap: Nilai & tindak lanjut' }).click();
+  await expect(page.locator('#workflow-stage-result')).toBeFocused();
+  await expect(page.locator('#workflow-stage-result')).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.react-flow__viewport')).toHaveAttribute('style', viewport!);
+  await page.getByRole('button', { name: 'Kembali ke penjelasan hasil' }).click();
+  await expect(heading).toBeFocused();
+  await page.getByRole('button', { name: 'Tutup penjelasan' }).click();
+  await expect(page.getByRole('region', { name: 'Alasan status analisis' })).not.toBeVisible();
+  const divider = await page
+    .getByRole('separator', { name: 'Lebar sidebar analisis' })
+    .boundingBox();
+  await page.mouse.move(divider!.x + 5, divider!.y + 80);
+  await page.mouse.down();
+  await page.mouse.move(1430, divider!.y + 80);
+  await page.mouse.up();
+  expect((await page.locator('.workflow-panel').boundingBox())!.width).toBeCloseTo(320, 0);
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
+  await expect(heading).toBeFocused();
+  expect(
+    await page.locator('.panel-scroll').evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  await expect
+    .poll(async () => {
+      const title = await heading.boundingBox();
+      const area = await page.locator('.panel-scroll').boundingBox();
+      return Math.abs(title!.y - area!.y);
+    })
+    .toBeLessThan(40);
+  await page.screenshot({ path: 'runtime/sidebar-explanation-minimum.png' });
+  await page.getByRole('button', { name: 'Tutup penjelasan' }).click();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
+    await expect(heading).toBeFocused();
+    expect(
+      await page.locator('.panel-scroll').evaluate((el) => el.scrollWidth <= el.clientWidth),
+    ).toBe(true);
+    await page.screenshot({ path: `runtime/sidebar-explanation-${colorScheme}.png` });
+    await page.getByRole('button', { name: 'Tutup penjelasan' }).click();
+  }
+  expect(calls).toBe(0);
+});
+
+test('legacy result without opportunity stays readable and resets explanation for another run', async ({
+  page,
+}) => {
+  const state = await setup(page, false, true);
+  const old = state.entries[0];
+  old.status = 'done';
+  old.result.title = 'Belum ditemukan peluang dari data tersedia';
+  old.result.intent_label = '';
+  old.review_reasons = [];
+  old.result.review_reasons = [];
+  old.next_steps = [];
+  old.result.next_steps = [];
+  Object.assign(old.result, {
+    has_opportunity: false,
+    intent: null,
+    action_label: 'Informasi belum cukup',
+  });
+  Object.assign(old.result.calculation, {
+    additional_outlets: null,
+    target_outlets: null,
+    gross_annual: null,
+    net_annual_scenario: null,
+    exceeds_package: false,
+    formula: '',
+  });
+  await page.getByRole('button', { name: /Lihat hasil tersimpan/ }).click();
+  await page.locator('.history-row > button:first-child').first().click();
+  await expect(page.getByRole('region', { name: 'Ringkasan analisis' })).toContainText(
+    'Belum ditemukan peluang',
+  );
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
+  await expect(
+    page.getByText('Hasil rubrik lama. Pertanyaan v2 belum dievaluasi pada hasil ini.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Workflow analisis', exact: true }).click();
+  await page.getByRole('button', { name: /Lihat hasil tersimpan/ }).click();
+  await page.locator('.history-row > button:first-child').nth(1).click();
+  await expect(page.getByRole('button', { name: 'Lihat penjelasan hasil' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+});
+
+test('source loading error is explained in the data tab without workflow controls', async ({
+  page,
+}) => {
+  await page.route('**/api/accounts/C02/context', (route) =>
+    route.fulfill({
+      status: 503,
+      json: { detail: 'Data sumber sedang tidak tersedia.' },
+    }),
+  );
+  await setup(page);
+  await page.getByRole('button', { name: /Data & bukti/ }).click();
+  await expect(page.locator('.workflow-panel').getByRole('alert')).toContainText(
+    'Data sumber sedang tidak tersedia',
+  );
+  await expect(page.getByText('Memuat data sumber…')).toHaveCount(0);
+  await expect(page.getByText('JEV · SYSTEM ONE')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Jalankan analisis baru' })).toHaveCount(0);
 });

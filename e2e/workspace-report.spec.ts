@@ -193,6 +193,7 @@ test('report table preserves choices, downloads PDFs, replays and deletes withou
   await page.screenshot({ path: 'runtime/report-table.png' });
   await page.getByRole('button', { name: 'Buka report report-1', exact: true }).click();
   await expect(page.getByRole('complementary', { name: 'Account Expansion C02' })).toBeVisible();
+  await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
   await expect(page.getByRole('region', { name: 'Evaluasi rubrik' })).toBeVisible();
   expect(evaluations).toBe(0);
 });
