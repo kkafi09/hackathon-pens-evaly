@@ -6,10 +6,10 @@
   </picture>
 </p>
 
-<h1 align="center">Setiap koneksi, sebuah peluang.</h1>
+<h1 align="center">evaluate your business wisely</h1>
 
 <p align="center">
-  Jelajahi konteks pelanggan. Temukan peluang ekspansi. Telusuri bukti di balik setiap hasil.
+  Explore customer context. Discover expansion opportunities. Trace the evidence behind every result.
 </p>
 
 <p align="center">
@@ -21,67 +21,67 @@
 </p>
 
 <p align="center">
-  <a href="#fitur-utama">Fitur</a> ·
-  <a href="#cara-kerja">Workflow</a> ·
-  <a href="#mulai-lokal">Mulai lokal</a> ·
-  <a href="#dokumentasi">Dokumentasi</a> ·
-  <a href="#pengujian">Pengujian</a>
+  <a href="#features">Features</a> ·
+  <a href="#how-it-works">Workflow</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="#testing">Testing</a>
 </p>
 
 ---
 
-## Tentang Evaly
+## About Evaly
 
-Evaly membantu tim account management dan sales menjawab **“Di mana peluang pertumbuhan dari pelanggan yang ada?”** melalui context graph yang menghubungkan percakapan, kontak, kontrak, usage, dan tiket.
+Evaly helps account management and sales teams answer **“Where can we grow revenue from existing customers?”** through a context graph connecting conversations, contacts, contracts, product usage, and support tickets.
 
-Jev melalui OpenRouter menilai sinyal ekspansi dan niat pelanggan. Kode menghitung estimasi nilai, sementara graph membantu menelusuri sumbernya. Hasil menyajikan peluang, hal yang perlu dikonfirmasi, dan tindakan berikutnya.
+Jev through OpenRouter evaluates expansion signals and customer intent. Code calculates estimated value, while the graph makes the underlying sources accessible. Results bring together opportunities, questions to confirm, and next steps.
 
-Dataset KasirNusa mencakup **40 pelanggan, 5 prospek, dan 620 outlet**, dengan snapshot 1 Oktober 2026. Account Expansion tersedia untuk pelanggan existing; empat track lainnya masih terkunci.
+The KasirNusa dataset covers **40 customers, 5 prospects, and 620 outlets**, with a snapshot date of October 1, 2026. Account Expansion is available for existing customers; four other tracks remain locked. The dashboard interface and source dataset are in Indonesian.
 
-## Fitur utama
+## Features
 
-| Fitur                           | Yang bisa dilakukan                                                                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| **Context graph**               | Cari akun, jelajahi relasi, dan buka konteks pelanggan tanpa kehilangan posisi kanvas.           |
-| **Account Expansion**           | Jalankan klasifikasi interaksi, penilaian niat, pemeriksaan tiket, dan rekomendasi tindakan.     |
-| **Bukti yang dapat ditelusuri** | Bedakan data yang dievaluasi dan bukti pendukung hasil; buka pesan, kontrak, serta kutipan asli. |
-| **Hasil yang mudah dibaca**     | Lihat kesimpulan, alasan perlu ditinjau, langkah berikutnya, dan formula estimasi nilai.         |
-| **Riwayat dan ekspor**          | Buka kembali snapshot hasil, ekspor Markdown/CSV, atau hapus satu hasil dengan konfirmasi.       |
-| **Terang dan gelap**            | Tema mengikuti perangkat atau pilihan pengguna, dengan logo dan warna bukti yang menyesuaikan.   |
+| Feature                   | What you can do                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **Context graph**         | Search accounts, explore relationships, and open customer context while preserving your canvas position. |
+| **Account Expansion**     | Classify interactions, assess intent, review tickets, and get recommended actions.                       |
+| **Traceable evidence**    | Distinguish evaluated data from supporting evidence; inspect original messages, contracts, and quotes.   |
+| **Readable results**      | Review conclusions, reasons for review, next steps, and value calculations.                              |
+| **History and exports**   | Replay saved snapshots, export Markdown/CSV, or delete an individual result with confirmation.           |
+| **Light and dark themes** | Follow your device theme or choose a preference, with matching logos and evidence colors.                |
 
-## Cara kerja
+## How it works
 
-**Pilih akun → Jalankan analisis → Telusuri bukti → Tindak lanjut**
+**Select an account → Run analysis → Explore evidence → Take action**
 
-1. Klik akun pada graph, lalu pilih **Account Expansion**. Membuka panel belum memanggil Jev.
-2. Pilih **Jalankan analisis baru** atau **Lihat hasil tersimpan**. Replay menampilkan waktu evaluasi asli tanpa panggilan model baru.
-3. Ikuti tahap workflow, lalu buka **Hasil analisis** untuk membaca kesimpulan, alasan review, estimasi nilai, dan tindakan berikutnya.
-4. Klik bukti untuk membuka record dan menyorot graph. Gunakan **Fokus bukti** jika ingin memusatkan kanvas, lalu ekspor ringkasan untuk tindak lanjut.
+1. Click an account in the graph and choose **Account Expansion**. Opening the panel does not call Jev.
+2. Choose **Run new analysis** (`Jalankan analisis baru`) or **View saved results** (`Lihat hasil tersimpan`). Replay shows the original evaluation time without a new model request.
+3. Follow the workflow, then open **Analysis results** (`Hasil analisis`) for conclusions, review reasons, estimated value, and next steps.
+4. Click evidence to open its record and highlight the graph. Use **Focus evidence** (`Fokus bukti`) to center the canvas, then export a summary for follow-up.
 
 <details>
-<summary><strong>Di balik workflow: konteks, Jev, dan perhitungan</strong></summary>
+<summary><strong>Inside the workflow: context, Jev, and calculations</strong></summary>
 
-| Tahap                     | Peran                                                                                                                                     |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Kumpulkan konteks**     | Ambil record akun dan ringkasan usage dari dataset aktif MySQL.                                                                           |
-| **Choice — klasifikasi**  | Kategorikan interaksi sebagai ekspansi, keluhan, renewal, lainnya, atau tidak jelas.                                                      |
-| **Score — niat**          | Nilai pesan ekspansi pelanggan dan thread terkait: belum ada niat eksplisit, eksplorasi, rencana konkret, atau permintaan penawaran.      |
-| **Noul — tiket**          | Periksa apakah bukti secara eksplisit menyatakan masalah harus selesai sebelum ekspansi. Tiket terbuka tidak otomatis menjadi penghambat. |
-| **Kode + Choice — hasil** | Ambil kandidat jumlah outlet, pilih angka yang didukung konteks, hitung nilai, dan tentukan tindakan berikutnya.                          |
+| Stage                       | Role                                                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Collect context**         | Retrieve account records and usage summaries from the active MySQL dataset.                                                         |
+| **Choice — classification** | Categorize interactions as expansion, complaint, renewal, other, or unclear.                                                        |
+| **Score — intent**          | Assess customer expansion messages and related threads: no explicit intent, exploration, concrete plan, or request for quotation.   |
+| **Noul — tickets**          | Check whether evidence explicitly requires an issue to be resolved before expansion. An open ticket is not automatically a blocker. |
+| **Code + Choice — results** | Extract candidate outlet counts, select a count supported by context, calculate value, and choose a next action.                    |
 
-Ungu menandai bukti ekspansi/thread, biru dasar perhitungan, dan kuning konteks atau informasi yang perlu dikonfirmasi. Highlight menunjukkan peran sumber dalam workflow, bukan proses berpikir internal model.
+Purple marks expansion evidence and related threads, blue marks calculation inputs, and yellow marks context or information to confirm. Highlights show the role of sources in the workflow, not the model's internal reasoning.
 
-Run menyimpan snapshot bukti, respons Jev, model aktual, gateway, versi rubrik, waktu, dan hash dataset. Hasil lama memakai informasi yang memang tersimpan; keterbatasan provenance ditampilkan bila ada.
+Each run stores evidence snapshots, Jev responses, the actual model, gateway, rubric version, timestamps, and dataset hash. Older results use the information originally saved and show provenance limitations where applicable.
 
 </details>
 
-## Mulai lokal
+## Getting started
 
-**Prasyarat:** Bun 1.4.2+, Node.js 22+, Python 3.12+, dan MySQL 8+ dengan schema serta pengguna aplikasi yang sudah dibuat.
+**Requirements:** Bun 1.4.2+, Node.js 22+, Python 3.12+, and MySQL 8+ with an application schema and user already created.
 
-Jalankan dari root repositori Evaly. Pada workspace induk, masuk ke folder `03 Dashboard` terlebih dahulu. Contoh berikut menggunakan PowerShell di Windows.
+Run commands from the Evaly repository root. In the parent workspace, enter `03 Dashboard` first. The following examples use PowerShell on Windows.
 
-### 1. Pasang dependency
+### 1. Install dependencies
 
 ```powershell
 python -m venv .venv
@@ -90,9 +90,9 @@ bun install --frozen-lockfile
 Copy-Item .env.example .env
 ```
 
-### 2. Atur konfigurasi backend
+### 2. Configure the backend
 
-Isi `.env` dengan koneksi MySQL dan key OpenRouter milik Anda:
+Set your MySQL connection and OpenRouter key in `.env`:
 
 ```dotenv
 DATABASE_URL=mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/evaly?charset=utf8mb4
@@ -100,99 +100,101 @@ OPENROUTER_API_KEY=
 OPENROUTER_MODEL=~typesafe/jev-latest
 ```
 
-Ganti `USER` dan `PASSWORD`; URL-encode karakter khusus pada password. Key hanya dibaca backend dan `.env` dikecualikan dari Git. Restart backend setelah mengubah konfigurasi.
+Replace `USER` and `PASSWORD`; URL-encode special characters in the password. The key is read only by the backend, and `.env` is excluded from Git. Restart the backend after changing configuration.
 
-Key diperlukan untuk **analisis baru**. Graph, konteks data, dan hasil tersimpan dapat dibuka tanpa key setelah database siap.
+A key is required for **new analyses**. The graph, account context, and saved results are accessible without a key once the database is ready.
 
-### 3. Siapkan database dan dataset
+### 3. Prepare the database and dataset
 
 ```powershell
 .venv/Scripts/python.exe -m alembic upgrade head
 .venv/Scripts/python.exe -m backend.seed
 ```
 
-Seeder membaca 17 file pada `data/dataset_kasirnusa`. Runtime memakai versi aktif di MySQL, tanpa SQLite. Impor bersifat transaksional dan idempoten: versi yang sama tidak digandakan, riwayat tetap tersimpan, dan dataset aktif dikenali tanpa restart.
+The seeder reads 17 files from `data/dataset_kasirnusa`. Runtime reads the active version from MySQL, without SQLite. Imports are transactional and idempotent: the same version is not duplicated, history is preserved, and a newly active dataset is recognized without restarting.
 
-### 4. Jalankan aplikasi
+### 4. Start the application
 
-Terminal pertama — backend:
+First terminal — backend:
 
 ```powershell
 .venv/Scripts/python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 ```
 
-Terminal kedua — frontend:
+Second terminal — frontend:
 
 ```powershell
 bun run dev
 ```
 
-Buka **[localhost:5173](http://127.0.0.1:5173)**. Vite meneruskan `/api` ke backend. Periksa kesiapan database di **[backend readiness](http://127.0.0.1:8000/api/health/ready)**.
+Open **[localhost:5173](http://127.0.0.1:5173)**. Vite forwards `/api` requests to the backend. Check database readiness at **[backend readiness](http://127.0.0.1:8000/api/health/ready)**.
 
-Untuk deployment, tersedia image frontend/backend terpisah dan CI/CD. Ikuti [panduan deployment](DEPLOYMENT.md) untuk konfigurasi server serta migration/seeder manual melalui container.
+Separate frontend/backend images and CI/CD are available for deployment. See the [deployment guide](DEPLOYMENT.md) for server configuration and manual migrations/seeding inside the backend container.
 
 <details>
-<summary><strong>Menjalankan hasil build dan melihat API</strong></summary>
+<summary><strong>Serving a production build and exploring the API</strong></summary>
 
-Untuk menyajikan hasil build melalui FastAPI:
+To serve the frontend build through FastAPI:
 
 ```powershell
 bun run build
 .venv/Scripts/python.exe -m uvicorn backend.app:app --host 127.0.0.1 --port 8000
 ```
 
-Jika backend sudah berjalan, restart setelah build pertama agar `dist` terpasang. Buka [localhost:8000](http://127.0.0.1:8000).
+If the backend is already running, restart it after the first build so that `dist` is mounted. Open [localhost:8000](http://127.0.0.1:8000).
 
-| Endpoint                                      | Fungsi                                                                        |
-| --------------------------------------------- | ----------------------------------------------------------------------------- |
-| `GET /api/health`                             | Konfigurasi gateway/model dan ketersediaan key; bukan uji koneksi OpenRouter. |
-| `GET /api/health/live`                        | Proses backend hidup; tidak mengakses MySQL atau OpenRouter.                  |
-| `GET /api/health/ready`                       | MySQL, migration, dan dataset aktif siap: `200`, atau `503` jika belum.       |
-| `GET /api/graph?account_id=C02`               | Graph global atau konteks akun.                                               |
-| `GET /api/accounts/{id}/context`              | Sumber dan ringkasan konteks akun.                                            |
-| `POST /api/accounts/{id}/expansion-runs`      | Mulai analisis; respons `202` dengan run ID.                                  |
-| `GET /api/accounts/{id}/expansion-runs`       | Riwayat analisis akun.                                                        |
-| `GET /api/expansion-runs/{run_id}`            | Status tahap, hasil, dan error.                                               |
-| `DELETE /api/expansion-runs/{run_id}`         | Hapus satu hasil: `204`; tidak ditemukan: `404`; proses aktif: `409`.         |
-| `GET /api/expansion-runs/{run_id}/export/md`  | Ekspor ringkasan Markdown.                                                    |
-| `GET /api/expansion-runs/{run_id}/export/csv` | Ekspor peluang CSV.                                                           |
+| Endpoint                                      | Purpose                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GET /api/health`                             | Gateway/model configuration and key availability; does not test OpenRouter connectivity. |
+| `GET /api/health/live`                        | Backend process liveness; does not access MySQL or OpenRouter.                           |
+| `GET /api/health/ready`                       | MySQL, migrations, and active dataset readiness: `200` when ready, otherwise `503`.      |
+| `GET /api/graph?account_id=C02`               | Global graph or account context.                                                         |
+| `GET /api/accounts/{id}/context`              | Account sources and context summary.                                                     |
+| `POST /api/accounts/{id}/expansion-runs`      | Start analysis; returns `202` with a run ID.                                             |
+| `GET /api/accounts/{id}/expansion-runs`       | Account analysis history.                                                                |
+| `GET /api/expansion-runs/{run_id}`            | Stage status, results, and errors.                                                       |
+| `DELETE /api/expansion-runs/{run_id}`         | Delete one result: `204`; not found: `404`; active run: `409`.                           |
+| `GET /api/expansion-runs/{run_id}/export/md`  | Export a Markdown summary.                                                               |
+| `GET /api/expansion-runs/{run_id}/export/csv` | Export opportunities as CSV.                                                             |
 
-Frontend melakukan polling selama analisis aktif. Backend memakai satu worker/satu instance; analisis yang terputus saat restart ditandai gagal. OpenRouter memakai timeout 60 detik per panggilan, maksimal tiga percobaan untuk HTTP `429` dan `5xx`. Kegagalan ditampilkan tanpa hasil simulasi.
+The frontend polls while analysis is active. The backend runs as one worker/instance; runs interrupted by a restart are marked as failed. OpenRouter requests use a 60-second timeout and up to three attempts for HTTP `429` and `5xx`. Failures are displayed without simulated results.
 
 </details>
 
-## Contoh analisis
+## Example analyses
 
-Cari **C02** atau **C06** untuk menelusuri contoh peluang dari dataset.
+Search for **C02** or **C06** to explore opportunities from the dataset.
 
-|                             | C02 · TB Sinar Jaya                                                   | C06 · Saiyo Group                                                                       |
-| --------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| **Bukti percakapan**        | I0253: rencana enam cabang; I0255: respons awal owner.                | I0300: permintaan penawaran/jadwal sepuluh outlet; belum ada balasan langsung tercatat. |
-| **Kontrak**                 | K-C02 · Growth · 25 outlet · diskon 5%.                               | K-C06 · Enterprise · 30 outlet · diskon 10%.                                            |
-| **Tambahan → target**       | 6 → **31 outlet**.                                                    | 10 → **40 outlet**.                                                                     |
-| **Bruto per tahun**         | **Rp25.200.000**                                                      | **Rp42.000.000**                                                                        |
-| **Neto skenario per tahun** | **Rp23.940.000**                                                      | **Rp37.800.000**                                                                        |
-| **Perlu dikonfirmasi**      | Jadwal, kebutuhan fitur, dan paket untuk target di atas batas Growth. | Respons penawaran, stakeholder, dan jadwal implementasi.                                |
+|                           | C02 · TB Sinar Jaya                                                    | C06 · Saiyo Group                                                            |
+| ------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **Conversation evidence** | I0253: six planned branches; I0255: initial account owner reply.       | I0300: quotation/timeline request for ten outlets; no direct reply recorded. |
+| **Contract**              | K-C02 · Growth · 25 outlets · 5% discount.                             | K-C06 · Enterprise · 30 outlets · 10% discount.                              |
+| **Additional → target**   | 6 → **31 outlets**.                                                    | 10 → **40 outlets**.                                                         |
+| **Annual gross value**    | **IDR 25,200,000**                                                     | **IDR 42,000,000**                                                           |
+| **Annual net scenario**   | **IDR 23,940,000**                                                     | **IDR 37,800,000**                                                           |
+| **To confirm**            | Timeline, feature needs, and package capacity beyond the Growth limit. | Quotation follow-up, stakeholders, and implementation timeline.              |
 
-Formula: **tambahan outlet × Rp350.000 × 12 bulan**. Neto memakai skenario diskon kontrak existing tetap berlaku. Angka tersebut digunakan bila tambahan outlet terpilih dengan bukti memadai; bukan harga penawaran final atau hasil Jev yang sudah disiapkan. Belum ada deal/keputusan khusus C02/C06 di sumber. Pipeline pelanggan baru ditampilkan terpisah.
+Formula: **additional outlets × IDR 350,000 × 12 months**. The net scenario assumes the existing contract discount continues. These values apply when the additional outlet count is supported by sufficient evidence; they are neither final quotations nor prepared Jev results. The sources contain no account-specific deal or decision records for C02/C06. New-customer pipeline is displayed separately.
 
-## Dokumentasi
+## Documentation
 
-| Panduan                                                    | Isi                                                                             |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [Deployment dan MySQL](DEPLOYMENT.md)                      | Image Docker, environment, migration/seeder container, health check, dan CI/CD. |
-| [Panduan data](docs/DATA_GUIDE.md)                         | Sumber dataset, relasi, aturan bisnis, dan dasar perhitungan.                   |
-| [Jev dan Account Expansion](docs/JEV_ACCOUNT_EXPANSION.md) | Peran Choice, Score, Noul, confidence, serta keterlacakan analisis.             |
+The detailed guides below are currently in Indonesian.
 
-## Pengujian
+| Guide                                                      | Contents                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [Deployment and MySQL](DEPLOYMENT.md)                      | Docker images, environment configuration, container migrations/seeding, health checks, and CI/CD. |
+| [Data guide](docs/DATA_GUIDE.md)                           | Dataset sources, relationships, business rules, and calculation inputs.                           |
+| [Jev and Account Expansion](docs/JEV_ACCOUNT_EXPANSION.md) | Choice, Score, Noul, confidence, and analysis traceability.                                       |
 
-Frontend menggunakan **Oxlint** dan **Oxfmt**. Jalankan pemeriksaan lint, format, dan build dengan:
+## Testing
+
+The frontend uses **Oxlint** and **Oxfmt**. Run lint, format checks, and the build with:
 
 ```powershell
 bun run check
 ```
 
-Tes backend dan antarmuka membutuhkan database khusus tes. Siapkan sesuai [panduan pengujian](DEPLOYMENT.md#pengujian), lalu jalankan:
+Backend and browser tests require a dedicated test database. Follow the [testing setup](DEPLOYMENT.md#pengujian), then run:
 
 ```powershell
 .venv/Scripts/python.exe -m pytest backend/tests -q
@@ -200,4 +202,4 @@ bunx playwright install chromium
 bun run test:e2e
 ```
 
-Tes memakai respons Jev terkontrol tanpa panggilan berbayar. Gunakan `TEST_DATABASE_URL` dan `DATABASE_URL` menuju schema berakhiran `_test`, dengan key OpenRouter kosong untuk backend Playwright.
+Tests use controlled Jev responses without paid API calls. Point `TEST_DATABASE_URL` and `DATABASE_URL` to a schema ending in `_test`, and leave the OpenRouter key empty for the Playwright backend.
