@@ -1,3 +1,4 @@
+import { number, t, tx, presentText, useLanguage, locale, withLanguage } from './i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
@@ -84,6 +85,7 @@ export default function WorkflowPanel({
   onEvidenceSet: (items: Evidence[]) => void;
   onFocusEvidence: () => void;
 }) {
+  useLanguage();
   const [definition, setDefinition] = useState<RubricDefinition | null>(null);
   const [questionIds, setQuestionIds] = useState<string[]>([]);
   const [run, setRun] = useState<Run | null>(null);
@@ -363,15 +365,17 @@ export default function WorkflowPanel({
         <span className="eyebrow">
           <Sparkles size={12} /> ACCOUNT EXPANSION
         </span>
-        <button className="close-icon" aria-label="Tutup workflow" onClick={onClose}>
+        <button className="close-icon" aria-label={t('Tutup workflow')} onClick={onClose}>
           <X size={19} />
         </button>
         <h2>{account.label}</h2>
         <div className="account-meta">
           <span>{account.id}</span>
           <span>{account.record.paket}</span>
-          <span>{account.record.jumlah_outlet} outlet</span>
-          <span>{context?.owner?.nama || 'Memuat owner…'}</span>
+          <span>
+            {account.record.jumlah_outlet} {t('outlet')}
+          </span>
+          <span>{context?.owner?.nama || t('Memuat owner…')}</span>
         </div>
       </div>
       <div className="panel-tabs">
@@ -382,7 +386,7 @@ export default function WorkflowPanel({
             setProofMode('stage');
           }}
         >
-          Workflow analisis
+          {t('Workflow analisis') + ' '}
         </button>
         <button
           className={tab === 'sources' ? 'active' : ''}
@@ -391,7 +395,8 @@ export default function WorkflowPanel({
             if (sourceMode !== 'records') setProofMode(sourceMode);
           }}
         >
-          Data & bukti <span>{context?.interactions.length || 0}</span>
+          {t('Data & bukti') + ' '}
+          <span>{context?.interactions.length || 0}</span>
         </button>
         <button
           className={tab === 'results' ? 'active' : ''}
@@ -401,7 +406,7 @@ export default function WorkflowPanel({
           }}
           disabled={!result}
         >
-          Hasil analisis
+          {t('Hasil analisis') + ' '}
         </button>
       </div>
       <div ref={scrollRef} className={`panel-scroll tab-${animatedTab.phase}`}>
@@ -409,11 +414,13 @@ export default function WorkflowPanel({
           <div className="run-status" role="status">
             <strong>{statusLabels[run.status]}</strong>
             <span>
-              {replay ? 'Pemutaran ulang hasil · ' : ''}
+              {replay ? t('Pemutaran ulang hasil · ') : ''}
               {dateTime(run.created_at)}
             </span>
             {run.stale && (
-              <span className="stale-note">Versi dataset berbeda; periksa bukti tersimpan.</span>
+              <span className="stale-note">
+                {t('Versi dataset berbeda; periksa bukti tersimpan.')}
+              </span>
             )}
           </div>
         )}
@@ -422,33 +429,35 @@ export default function WorkflowPanel({
             <div className="run-control">
               <div>
                 <span className="eyebrow">JEV · SYSTEM ONE</span>
-                <h3>Dari konteks menjadi keputusan.</h3>
-                <p>Lihat sumber, pertanyaan, dan hasil pada setiap tahap.</p>
+                <h3>{t('Dari konteks menjadi keputusan.')}</h3>
+                <p>{t('Lihat sumber, pertanyaan, dan hasil pada setiap tahap.')}</p>
               </div>
               <button className="primary" disabled={busy || running || !context} onClick={start}>
                 {busy || running ? <span className="spinner" /> : <Play size={14} />}
-                {running ? 'Analisis berjalan' : 'Jalankan analisis baru'}
+                {running ? t('Analisis berjalan') : t('Jalankan analisis baru')}
               </button>
               <button
                 className="secondary"
                 onClick={() => setShowHistory(!showHistory)}
                 disabled={!history.length}
               >
-                <HistoryIcon size={14} /> Lihat hasil tersimpan <span>{history.length}</span>
+                <HistoryIcon size={14} /> {t('Lihat hasil tersimpan') + ' '}
+                <span>{history.length}</span>
               </button>
             </div>
             {!jevConfigured && (
               <div className="notice">
                 <ShieldCheck size={16} />
                 <span>
-                  API key OpenRouter belum diatur. Data sumber tetap tersedia. Analisis baru
-                  memerlukan konfigurasi backend; hasil tersimpan dapat dibuka jika tersedia.
+                  {t(
+                    'API key OpenRouter belum diatur. Data sumber tetap tersedia. Analisis baru memerlukan konfigurasi backend; hasil tersimpan dapat dibuka jika tersedia.',
+                  ) + ' '}
                 </span>
               </div>
             )}
             {showHistory && (
               <div className="history-list">
-                <h4>Riwayat evaluasi akun</h4>
+                <h4>{t('Riwayat evaluasi akun')}</h4>
                 {history.map((h) => (
                   <div className="history-row" key={h.id}>
                     <button disabled={busy} onClick={() => load(h.id)}>
@@ -456,15 +465,15 @@ export default function WorkflowPanel({
                       <span>
                         {dateTime(h.created_at)}
                         <small>
-                          {h.gateway || 'typesafe'} · {h.model || 'Belum ada respons Jev'} ·{' '}
-                          {statusLabels[h.status]} {h.stale ? '· Berbeda versi data' : ''}
+                          {h.gateway || 'typesafe'} · {h.model || t('Belum ada respons Jev')} ·{' '}
+                          {statusLabels[h.status]} {h.stale ? t('· Berbeda versi data') : ''}
                         </small>
                       </span>
                       <ArrowRight size={14} />
                     </button>
                     <button
                       className="delete-history"
-                      aria-label={`Hapus hasil ${dateTime(h.created_at)}`}
+                      aria-label={t('Hapus hasil {0}', [dateTime(h.created_at)])}
                       disabled={!['done', 'review', 'failed'].includes(h.status) || busy}
                       onClick={() => requestDelete(h)}
                     >
@@ -476,8 +485,8 @@ export default function WorkflowPanel({
             )}
             {(error || run?.error) && (
               <div className="error-box" role="alert">
-                <strong>Analisis belum dapat diselesaikan</strong>
-                <p>{error || run?.error}</p>
+                <strong>{t('Analisis belum dapat diselesaikan')}</strong>
+                <p>{presentText(error || run?.error)}</p>
               </div>
             )}
           </>
@@ -492,12 +501,12 @@ export default function WorkflowPanel({
                   navigate('results', '#analysis-explanation-heading');
                 }}
               >
-                Kembali ke penjelasan hasil
+                {t('Kembali ke penjelasan hasil') + ' '}
               </button>
             )}
             <div className="section-label">
-              <span>ALUR PENALARAN</span>
-              <span>{run ? statusLabels[run.status] : 'Siap dijalankan'}</span>
+              <span>{t('ALUR PENALARAN')}</span>
+              <span>{run ? statusLabels[run.status] : t('Siap dijalankan')}</span>
             </div>
             <div className="workflow-steps">
               {steps.map((step, i) => {
@@ -528,12 +537,14 @@ export default function WorkflowPanel({
                       >
                         <div>
                           <span className="primitive">{step.primitive}</span>
-                          <h4>{step.title}</h4>
+                          <h4>{tx(step.title)}</h4>
                           <p>
                             {run && !run.rubric
-                              ? descriptions[i]
-                              : definition?.steps.find((entry) => entry.id === step.id)
-                                  ?.description}
+                              ? tx(descriptions[i])
+                              : tx(
+                                  definition?.steps.find((entry) => entry.id === step.id)
+                                    ?.description,
+                                )}
                           </p>
                         </div>
                         <div className="step-right">
@@ -559,21 +570,24 @@ export default function WorkflowPanel({
                               <div className="source-grid">
                                 {Object.entries(context.source_counts).map(([key, count]) => (
                                   <div key={key}>
-                                    <strong>{count.toLocaleString('id-ID')}</strong>
-                                    <span>{sourceNames[key] || key}</span>
+                                    <strong>{count.toLocaleString(locale())}</strong>
+                                    <span>{tx(sourceNames[key] || key)}</span>
                                   </div>
                                 ))}
                               </div>
                               <p className="detail-note">
-                                Sumber: data/dataset_kasirnusa · Snapshot 1 Oktober 2026. Transaksi
-                                harian diagregasikan oleh kode.
+                                {t(
+                                  'Sumber: data/dataset_kasirnusa · Snapshot 1 Oktober 2026. Transaksi harian diagregasikan oleh kode.',
+                                ) + ' '}
                               </p>
                               {context.warnings.length > 0 && (
                                 <details>
-                                  <summary>{context.warnings.length} catatan kualitas data</summary>
+                                  <summary>
+                                    {context.warnings.length} {t('catatan kualitas data')}
+                                  </summary>
                                   <ul>
                                     {context.warnings.map((x, n) => (
-                                      <li key={n}>{x}</li>
+                                      <li key={n}>{tx(x)}</li>
                                     ))}
                                   </ul>
                                 </details>
@@ -585,7 +599,7 @@ export default function WorkflowPanel({
                               {step.data.classifications.map((a: RecordData) => (
                                 <div key={a.interaction_id}>
                                   <Evidence id={a.interaction_id} onClick={onEvidence} />
-                                  <span>{classNames[a.choice] || a.choice}</span>
+                                  <span>{tx(classNames[a.choice] || a.choice)}</span>
                                   <small>Confidence {Math.round(a.confidence * 100)}%</small>
                                 </div>
                               ))}
@@ -593,7 +607,7 @@ export default function WorkflowPanel({
                           )}
                           {!run?.rubric && i === 2 && step.data?.intent && (
                             <>
-                              <strong className="intent-label">{step.data.label}</strong>
+                              <strong className="intent-label">{tx(step.data.label)}</strong>
                               <Distribution answer={step.data.intent} />
                               <div className="evidence-chips">
                                 {step.data.source_ids.map((id: string) => (
@@ -606,15 +620,16 @@ export default function WorkflowPanel({
                             step.data?.tickets && (
                               <>
                                 <p className="detail-note">
-                                  Nilai Noul: kemungkinan bukti menyatakan syarat eksplisit sebelum
-                                  ekspansi. Bukan label penghambat otomatis.
+                                  {t(
+                                    'Nilai Noul: kemungkinan bukti menyatakan syarat eksplisit sebelum ekspansi. Bukan label penghambat otomatis.',
+                                  ) + ' '}
                                 </p>
                                 <div className="answer-list">
                                   {step.data.tickets.map((a: RecordData) => (
                                     <div key={a.ticket_id}>
                                       <Evidence id={a.ticket_id} onClick={onEvidence} />
                                       <span>Noul</span>
-                                      <strong>{a.noul.toFixed(3)}</strong>
+                                      <strong>{number(a.noul, 3)}</strong>
                                     </div>
                                   ))}
                                 </div>
@@ -622,14 +637,15 @@ export default function WorkflowPanel({
                             )}
                           {step.id === 'result' && calc && (
                             <div className="calculation">
-                              <span>PERHITUNGAN KODE</span>
+                              <span>{t('PERHITUNGAN KODE')}</span>
                               <strong>
-                                {calc.formula || 'Jumlah tambahan belum dapat dipastikan'}
+                                {presentText(calc.formula) ||
+                                  t('Jumlah tambahan belum dapat dipastikan')}
                               </strong>
-                              <p>{result?.action_label}</p>
+                              <p>{presentText(result?.action_label)}</p>
                               {result?.action && (
                                 <details>
-                                  <summary>Detail penilaian tindak lanjut</summary>
+                                  <summary>{t('Detail penilaian tindak lanjut')}</summary>
                                   <Distribution answer={result.action} />
                                 </details>
                               )}
@@ -640,16 +656,18 @@ export default function WorkflowPanel({
                             onQuestion={showQuestion}
                             onEvidence={onEvidence}
                           />
-                          {step.data?.note && <p>{step.data.note}</p>}
+                          {presentText(step.data?.note) && <p>{presentText(step.data?.note)}</p>}
                           {i > 0 && !step.data && (
                             <p className="detail-note">
-                              Belum dievaluasi. Hasil muncul setelah tahap ini diproses.
+                              {t('Belum dievaluasi. Hasil muncul setelah tahap ini diproses.') +
+                                ' '}
                             </p>
                           )}
                           {calls.length > 0 && (
                             <details className="request-log">
                               <summary>
-                                {calls.length} panggilan Jev · pertanyaan, input & respons
+                                {calls.length}{' '}
+                                {t('panggilan Jev · pertanyaan, input & respons') + ' '}
                               </summary>
                               {calls.map((call, n) => (
                                 <div className="call" key={n}>
@@ -666,11 +684,11 @@ export default function WorkflowPanel({
                                     </div>
                                   ))}
                                   <details>
-                                    <summary>State yang dikirim</summary>
+                                    <summary>{t('State yang dikirim')}</summary>
                                     <pre>{JSON.stringify(call.state, null, 2)}</pre>
                                   </details>
                                   <details>
-                                    <summary>Respons asli Jev</summary>
+                                    <summary>{t('Respons asli Jev')}</summary>
                                     <pre>{JSON.stringify(call.response, null, 2)}</pre>
                                   </details>
                                 </div>
@@ -685,8 +703,9 @@ export default function WorkflowPanel({
               })}
             </div>
             <div className="workflow-caption">
-              <ShieldCheck size={14} /> Confidence adalah kepastian penilaian model, bukan
-              probabilitas deal menang.
+              <ShieldCheck size={14} />{' '}
+              {t('Confidence adalah kepastian penilaian model, bukan probabilitas deal menang.') +
+                ' '}
             </div>
             {result && (
               <button
@@ -696,7 +715,8 @@ export default function WorkflowPanel({
                   setProofMode('support');
                 }}
               >
-                Buka hasil analisis <ArrowRight size={15} />
+                {t('Buka hasil analisis') + ' '}
+                <ArrowRight size={15} />
               </button>
             )}
           </>
@@ -705,16 +725,17 @@ export default function WorkflowPanel({
           <>
             {contextError && (
               <div className="error-box" role="alert">
-                Data sumber belum dapat dimuat: {contextError}
+                {t('Data sumber belum dapat dimuat:') + ' '}
+                {tx(contextError)}
               </div>
             )}
             {run && (
-              <div className="proof-controls" aria-label="Pilih sumber bukti">
+              <div className="proof-controls" aria-label={t('Pilih sumber bukti')}>
                 <button
                   aria-pressed={sourceMode === 'records'}
                   onClick={() => setSourceMode('records')}
                 >
-                  Semua sumber akun
+                  {t('Semua sumber akun') + ' '}
                 </button>
                 <button
                   aria-pressed={sourceMode === 'support'}
@@ -724,7 +745,7 @@ export default function WorkflowPanel({
                     setProofMode('support');
                   }}
                 >
-                  Bukti pendukung hasil
+                  {t('Bukti pendukung hasil') + ' '}
                 </button>
                 <button
                   aria-pressed={sourceMode === 'all'}
@@ -737,7 +758,7 @@ export default function WorkflowPanel({
                     setProofMode('all');
                   }}
                 >
-                  Semua data yang dievaluasi
+                  {t('Semua data yang dievaluasi') + ' '}
                 </button>
               </div>
             )}
@@ -747,8 +768,9 @@ export default function WorkflowPanel({
               <>
                 {run && !run.steps.some((step) => step.provenance) && (
                   <p className="detail-note">
-                    Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap tersedia
-                    pada log dan hasil tersimpan.
+                    {t(
+                      'Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap tersedia pada log dan hasil tersimpan.',
+                    ) + ' '}
                   </p>
                 )}
                 <EvidenceView
@@ -775,53 +797,55 @@ export default function WorkflowPanel({
             <Collapse open={explanationOpen}>
               <div id="analysis-explanation">
                 <h3 id="analysis-explanation-heading" tabIndex={-1}>
-                  Penjelasan hasil
+                  {t('Penjelasan hasil') + ' '}
                 </h3>
                 <ResultGuidance run={run} onStage={showReviewStage} />
-                <h4>Estimasi dan asumsi nilai</h4>
+                <h4>{t('Estimasi dan asumsi nilai')}</h4>
                 <div className="value-grid">
                   <div>
-                    <span>Tambahan outlet</span>
+                    <span>{t('Tambahan outlet')}</span>
                     <strong>{calc.additional_outlets ?? '—'}</strong>
                   </div>
                   <div>
-                    <span>Existing → target</span>
+                    <span>{t('Existing → target')}</span>
                     <strong>
                       {calc.current_outlets} → {calc.target_outlets ?? '—'}
                     </strong>
                   </div>
                   <div>
-                    <span>Tambahan annualized bruto</span>
+                    <span>{t('Tambahan annualized bruto')}</span>
                     <strong>{money(calc.gross_annual)}</strong>
                   </div>
                   <div>
-                    <span>Neto · skenario diskon tetap</span>
+                    <span>{t('Neto · skenario diskon tetap')}</span>
                     <strong>{money(calc.net_annual_scenario)}</strong>
                   </div>
                 </div>
                 <p className="detail-note">
-                  {calc.formula || 'Angka belum dapat dipastikan dari bukti tersedia.'}
+                  {presentText(calc.formula) ||
+                    t('Angka belum dapat dipastikan dari bukti tersedia.')}
                 </p>
                 {calc.exceeds_package && (
                   <div className="notice warning">
-                    Target melebihi batas paket saat ini. Diskusikan upgrade; harga premium belum
-                    dihitung.
+                    {t(
+                      'Target melebihi batas paket saat ini. Diskusikan upgrade; harga premium belum dihitung.',
+                    ) + ' '}
                   </div>
                 )}
-                <h4>Asumsi & hal yang perlu dikonfirmasi</h4>
+                <h4>{t('Asumsi & hal yang perlu dikonfirmasi')}</h4>
                 <ul>
                   {[...calc.assumptions, ...result.concerns].map((x: string, i: number) => (
-                    <li key={i}>{x}</li>
+                    <li key={i}>{tx(x)}</li>
                   ))}
                 </ul>
                 {run.rubric && (
-                  <section aria-label="Evaluasi rubrik">
-                    <h4>Evaluasi rubrik · 19 pertanyaan</h4>
+                  <section aria-label={t('Evaluasi rubrik')}>
+                    <h4>{t('Evaluasi rubrik · 19 pertanyaan')}</h4>
                     {(definition?.steps || [])
                       .filter((group) => evaluations(group.id).length)
                       .map((group) => (
                         <details key={group.id}>
-                          <summary>{group.title}</summary>
+                          <summary>{tx(group.title)}</summary>
                           <RubricView
                             items={evaluations(group.id)}
                             onQuestion={showQuestion}
@@ -833,10 +857,10 @@ export default function WorkflowPanel({
                 )}
                 {!run.rubric && (
                   <p className="detail-note">
-                    Hasil rubrik lama. Pertanyaan v2 belum dievaluasi pada hasil ini.
+                    {t('Hasil rubrik lama. Pertanyaan v2 belum dievaluasi pada hasil ini.') + ' '}
                   </p>
                 )}
-                <h4>Bukti dan detail teknis</h4>{' '}
+                <h4>{t('Bukti dan detail teknis')}</h4>{' '}
                 {run && (
                   <>
                     <div className="proof-controls">
@@ -845,20 +869,21 @@ export default function WorkflowPanel({
                         onClick={() => setProofMode('support')}
                         disabled={!result}
                       >
-                        Bukti pendukung hasil
+                        {t('Bukti pendukung hasil') + ' '}
                       </button>
                       <button
                         aria-pressed={proofMode === 'all'}
                         onClick={() => setProofMode('all')}
                         disabled={!result}
                       >
-                        Semua data yang dievaluasi
+                        {t('Semua data yang dievaluasi') + ' '}
                       </button>
                     </div>
                     {!run.steps.some((step) => step.provenance) && (
                       <p className="detail-note">
-                        Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap
-                        tersedia pada log dan hasil tersimpan.
+                        {t(
+                          'Detail highlight belum tersedia untuk hasil lama ini. Bukti asli tetap tersedia pada log dan hasil tersimpan.',
+                        ) + ' '}
                       </p>
                     )}
                     <EvidenceView
@@ -869,7 +894,7 @@ export default function WorkflowPanel({
                     />
                   </>
                 )}
-                <h4>Jalur bukti</h4>
+                <h4>{t('Jalur bukti')}</h4>
                 <div className="evidence-path">
                   <Evidence id={account.id} onClick={onEvidence} />
                   <ArrowRight size={13} />
@@ -880,10 +905,12 @@ export default function WorkflowPanel({
                 {result.precedents?.length > 0 && (
                   <details>
                     <summary>
-                      Preseden pembanding · {result.precedents.length} keputusan akun lain
+                      {t('Preseden pembanding ·') + ' '}
+                      {result.precedents.length} {t('keputusan akun lain') + ' '}
                     </summary>
                     <p className="detail-note">
-                      Dikirim sebagai konteks pembanding, bukan approval untuk akun ini.
+                      {t('Dikirim sebagai konteks pembanding, bukan approval untuk akun ini.') +
+                        ' '}
                     </p>
                     {result.precedents.map((d: RecordData) => (
                       <div className="source-card" key={d.decision_id}>
@@ -903,28 +930,31 @@ export default function WorkflowPanel({
               disabled={!['done', 'review', 'failed'].includes(run.status) || busy}
               onClick={() => requestDelete(run)}
             >
-              <Trash2 size={14} /> Hapus hasil ini
+              <Trash2 size={14} /> {t('Hapus hasil ini') + ' '}
             </button>
             <div className="export-row">
-              <a href={`/api/expansion-runs/${run.id}/export/md`} download>
-                <Download size={14} /> Ringkasan Markdown
+              <a href={withLanguage(`/api/expansion-runs/${run.id}/export/md`)} download>
+                <Download size={14} /> {t('Ringkasan Markdown') + ' '}
               </a>
-              <a href={`/api/expansion-runs/${run.id}/export/csv`} download>
-                <Download size={14} /> Peluang CSV
+              <a href={withLanguage(`/api/expansion-runs/${run.id}/export/csv`)} download>
+                <Download size={14} /> {t('Peluang CSV') + ' '}
               </a>
             </div>
             <details className="metadata">
-              <summary>Metadata evaluasi</summary>
+              <summary>{t('Metadata evaluasi')}</summary>
               <p>
                 Gateway: {run.gateway || 'typesafe'}
                 <br />
                 Model: {run.models.join(', ') || run.model}
                 <br />
-                Rubrik: {run.rubric_version}
+                {t('Rubrik:') + ' '}
+                {run.rubric_version}
                 <br />
-                Evaluasi: {dateTime(run.created_at)}
+                {t('Evaluasi:') + ' '}
+                {dateTime(run.created_at)}
                 <br />
-                Hash dataset: {run.dataset_hash}
+                {t('Hash dataset:') + ' '}
+                {run.dataset_hash}
               </p>
             </details>
           </section>
@@ -932,9 +962,9 @@ export default function WorkflowPanel({
       </div>
       <DeleteRunDialog
         target={deleteTarget}
-        account={`${account.id} · ${account.label}`}
+        account={t('{0} · {1}', [account.id, account.label])}
         busy={deleting}
-        error={deleteError}
+        error={tx(deleteError)}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={removeRun}
       />
@@ -942,6 +972,7 @@ export default function WorkflowPanel({
   );
 }
 function Evidence({ id, onClick }: { id: string; onClick: (id: string) => void }) {
+  useLanguage();
   return (
     <button className="evidence-link" onClick={() => onClick(id)}>
       {id}
@@ -950,19 +981,20 @@ function Evidence({ id, onClick }: { id: string; onClick: (id: string) => void }
   );
 }
 function Distribution({ answer }: { answer: RecordData }) {
+  useLanguage();
   return (
     <div className="distribution">
       <div className="distribution-meta">
         <span>
           {answer.type === 'score'
-            ? `Score ${answer.score.toFixed(2)}`
+            ? `Score ${number(answer.score, 2)}`
             : `Choice: ${answer.choice}`}
         </span>
         <span>Confidence {Math.round(answer.confidence * 100)}%</span>
       </div>
       {Object.entries(answer.probabilities as Record<string, number>).map(([key, probability]) => (
         <div className="probability" key={key}>
-          <span>{answer.legend?.[key] || key}</span>
+          <span>{tx(answer.legend?.[key] || key)}</span>
           <div>
             <i style={{ width: `${probability * 100}%` }} />
           </div>
@@ -979,23 +1011,27 @@ function SourceView({
   context: Context | null;
   onEvidence: (id: string) => void;
 }) {
-  if (!c) return <p>Memuat data sumber…</p>;
+  useLanguage();
+  if (!c) return <p>{t('Memuat data sumber…')}</p>;
   const max = Math.max(...c.usage.map((x) => x.transactions), 1);
   return (
     <section className="source-view">
-      <h3>Fakta dari data sumber</h3>
+      <h3>{t('Fakta dari data sumber')}</h3>
       <p className="detail-note">
-        Bagian ini tersedia sebelum Jev dijalankan. Belum merupakan penilaian model.
+        {t('Bagian ini tersedia sebelum Jev dijalankan. Belum merupakan penilaian model.') + ' '}
       </p>
-      <h4>Kontrak & stakeholder</h4>
+      <h4>{t('Kontrak & stakeholder')}</h4>
       {c.contracts.map((r) => (
         <div className="source-card" key={r.contract_id}>
           <Evidence id={r.contract_id} onClick={onEvidence} />
           <strong>
-            {r.paket} · {r.outlet_kontrak} outlet · batas {r.batas_outlet_paket}
+            {r.paket} · {r.outlet_kontrak} {t('outlet · batas') + ' '}
+            {r.batas_outlet_paket}
           </strong>
           <p>
-            {money(Number(r.harga_per_outlet_bulan))}/outlet/bulan · diskon {r.diskon_pct}%
+            {money(Number(r.harga_per_outlet_bulan))}
+            {t('/outlet/bulan · diskon') + ' '}
+            {r.diskon_pct}%
           </p>
           <small>Renewal {r.tanggal_renewal}</small>
         </div>
@@ -1013,12 +1049,16 @@ function SourceView({
           </div>
         ))}
       </div>
-      <h4>Transaksi server per bulan</h4>
+      <h4>{t('Transaksi server per bulan')}</h4>
       <div className="usage-chart">
         {c.usage.map((r) => (
           <div
             key={r.month}
-            title={`${r.month}: ${r.transactions.toLocaleString('id-ID')} transaksi; ${r.records} outlet-hari`}
+            title={t('{0}: {1} transaksi; {2} outlet-hari', [
+              r.month,
+              r.transactions.toLocaleString(locale()),
+              r.records,
+            ])}
           >
             <i style={{ height: `${Math.max((r.transactions / max) * 100, 2)}%` }} />
             <small>{r.month.slice(5)}</small>
@@ -1026,10 +1066,14 @@ function SourceView({
         ))}
       </div>
       <p className="detail-note">
-        Transaksi yang tercatat server; tidak ditambah transaksi offline. Periksa versi dan
-        sinkronisasi sebelum menyimpulkan tren bisnis.
+        {t(
+          'Transaksi yang tercatat server; tidak ditambah transaksi offline. Periksa versi dan sinkronisasi sebelum menyimpulkan tren bisnis.',
+        ) + ' '}
       </p>
-      <h4>Email & catatan meeting · {c.interactions.length}</h4>
+      <h4>
+        {t('Email & catatan meeting ·') + ' '}
+        {c.interactions.length}
+      </h4>
       {[...c.interactions].reverse().map((r) => (
         <div className="source-card message-card" key={r.interaction_id}>
           <div>
@@ -1044,11 +1088,14 @@ function SourceView({
           </small>
           <p>{r.isi}</p>
           {r.customer_sender && !r.reply_count && (
-            <span className="unanswered">Belum ada balasan tercatat</span>
+            <span className="unanswered">{t('Belum ada balasan tercatat')}</span>
           )}
         </div>
       ))}
-      <h4>Tiket support · {c.tickets.length}</h4>
+      <h4>
+        {t('Tiket support ·') + ' '}
+        {c.tickets.length}
+      </h4>
       {c.tickets.map((r) => (
         <div className="source-card" key={r.ticket_id}>
           <div>
@@ -1064,29 +1111,34 @@ function SourceView({
           </small>
         </div>
       ))}
-      <h4>Pipeline & keputusan akun</h4>
+      <h4>{t('Pipeline & keputusan akun')}</h4>
       <p>
-        {c.deals.length} deal dan {c.decisions.length} keputusan khusus akun tercatat. Record yang
-        tidak ada tidak dibuat oleh aplikasi.
+        {c.deals.length} {t('deal dan') + ' '}
+        {c.decisions.length}{' '}
+        {t('keputusan khusus akun tercatat. Record yang tidak ada tidak dibuat oleh aplikasi.') +
+          ' '}
       </p>
-      <h4>Kandidat jalur pipeline</h4>
+      <h4>{t('Kandidat jalur pipeline')}</h4>
       {c.pipeline_candidates?.length ? (
         c.pipeline_candidates.map((item, i) => (
           <div className="source-card" key={i}>
-            <strong>{item.label}</strong>
+            <strong>{tx(item.label)}</strong>
             <div className="evidence-chips">
               {item.path.map((id: string) => (
                 <Evidence key={id} id={id} onClick={onEvidence} />
               ))}
             </div>
             <p>
-              Kandidat berbasis record. Relevansi dan kecukupan tindak lanjut dinilai pada
-              PC-1–PC-3.
+              {t(
+                'Kandidat berbasis record. Relevansi dan kecukupan tindak lanjut dinilai pada PC-1–PC-3.',
+              ) + ' '}
             </p>
           </div>
         ))
       ) : (
-        <p>Belum ditemukan jalur pipeline yang didukung ID atau record sumber untuk akun ini.</p>
+        <p>
+          {t('Belum ditemukan jalur pipeline yang didukung ID atau record sumber untuk akun ini.')}
+        </p>
       )}
     </section>
   );

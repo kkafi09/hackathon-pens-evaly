@@ -1,3 +1,4 @@
+import { number, t, tx, useLanguage } from './i18n';
 import type { Evidence } from './types';
 
 const labels = {
@@ -17,21 +18,22 @@ export default function EvidenceView({
   onEvidence: (id: string) => void;
   onFocus: () => void;
 }) {
+  useLanguage();
   return (
-    <section className="provenance-panel" aria-label="Sumber analisis">
+    <section className="provenance-panel" aria-label={t('Sumber analisis')}>
       <div className="provenance-heading">
-        <strong>{supporting ? 'Bukti pendukung hasil' : 'Data yang dievaluasi'}</strong>
+        <strong>{supporting ? t('Bukti pendukung hasil') : t('Data yang dievaluasi')}</strong>
         <button onClick={onFocus} disabled={!items.length}>
-          Fokus bukti
+          {t('Fokus bukti') + ' '}
         </button>
       </div>
-      <p>Peran sumber ditentukan workflow. Jev tidak mengembalikan alasan internal model.</p>
+      <p>{t('Peran sumber ditentukan workflow. Jev tidak mengembalikan alasan internal model.')}</p>
       <div className="proof-legend">
-        <span className="proof-expansion">Ekspansi</span>
-        <span className="proof-calculation">Perhitungan</span>
-        <span className="proof-context">Konteks / konfirmasi</span>
+        <span className="proof-expansion">{t('Ekspansi')}</span>
+        <span className="proof-calculation">{t('Perhitungan')}</span>
+        <span className="proof-context">{t('Konteks / konfirmasi')}</span>
       </div>
-      {!items.length && <p>Belum ada bukti pendukung yang tersedia.</p>}
+      {!items.length && <p>{t('Belum ada bukti pendukung yang tersedia.')}</p>}
       <div className="proof-list">
         {items.map((item) => {
           const text = String(item.record.isi || item.record.deskripsi || '');
@@ -39,28 +41,36 @@ export default function EvidenceView({
           return (
             <details className={`proof-card proof-${item.role}`} key={item.id}>
               <summary>
-                {item.id} · {labels[item.role]}
+                {item.id} · {tx(labels[item.role])}
               </summary>
-              <button aria-label={`Buka bukti ${item.id}`} onClick={() => onEvidence(item.id)}>
+              <button
+                aria-label={t('Buka bukti {0}', [item.id])}
+                onClick={() => onEvidence(item.id)}
+              >
                 {item.label}
               </button>
               <small>
                 {item.source} ·{' '}
-                {item.node_id ? 'Record sumber' : 'Snapshot · tidak tersedia sebagai node graph'}
+                {item.node_id
+                  ? t('Record sumber')
+                  : t('Snapshot · tidak tersedia sebagai node graph')}
               </small>
               {Object.entries(item.assessments || {}).map(([key, answer]) => (
                 <p key={key}>
-                  Hasil {key}:{' '}
+                  {t('Hasil') + ' '}
+                  {key}:{' '}
                   {answer.type === 'noul'
-                    ? `Noul ${answer.noul.toFixed(3)}`
+                    ? `Noul ${number(answer.noul, 3)}`
                     : answer.type === 'score'
-                      ? `Score ${answer.score.toFixed(2)}`
+                      ? `Score ${number(answer.score, 2)}`
                       : `Choice ${answer.choice}`}
                 </p>
               ))}
               {item.source === 'support_tickets.csv' && (
                 <p>
-                  Diperiksa sebagai kemungkinan syarat ekspansi; bukan label penghambat otomatis.
+                  {t(
+                    'Diperiksa sebagai kemungkinan syarat ekspansi; bukan label penghambat otomatis.',
+                  ) + ' '}
                 </p>
               )}
               {text && (
@@ -87,7 +97,8 @@ export default function EvidenceView({
               {!text && !item.fields?.length && <pre>{JSON.stringify(item.record, null, 2)}</pre>}
               {item.question_refs.length > 0 && (
                 <small>
-                  Pertanyaan terkait input: {Array.from(new Set(item.question_refs)).join(', ')}
+                  {t('Pertanyaan terkait input:') + ' '}
+                  {Array.from(new Set(item.question_refs)).join(', ')}
                 </small>
               )}
             </details>

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Depends, Request
 from pydantic import BaseModel, Field
 from typing import Literal
 from fastapi.responses import Response
@@ -18,6 +18,7 @@ from .rubric import definition as rubric_definition
 from .data import Dataset
 from .provenance import gateway
 from .explanations import explain_run
+from .localization import project, text as localized_text
 from .database import engine, active, datasets, records, readiness, REVISION
 from sqlalchemy import select, func, text
 from .database import runs
@@ -76,7 +77,41 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title='Evaly Context Graph', lifespan=lifespan)
+def presentation_language(lang: Literal['id', 'en'] = 'id'):
+    return lang
+
+
+app = FastAPI(title='Evaly Context Graph', lifespan=lifespan, dependencies=[Depends(presentation_language)])
+
+
+@app.middleware('http')
+async def present_response(request: Request, call_next):
+    response = await call_next(request)
+    lang = request.query_params.get('lang', 'id')
+    if lang not in ('id', 'en') or not request.url.path.startswith('/api/'):
+        return response
+    if lang == 'id' or 'application/json' not in response.headers.get('content-type', ''):
+        response.headers['Content-Language'] = lang
+        return response
+    payload = json.loads(b''.join([chunk async for chunk in response.body_iterator]))
+    if response.status_code >= 400:
+        if isinstance(payload.get('detail'), str):
+            payload['detail'] = localized_text(payload['detail'], lang, original=True)
+    elif request.url.path == '/api/graph':
+        payload = project(payload, lang, 'graph')
+    elif request.url.path.endswith('/context'):
+        payload = project(payload, lang, 'context')
+    elif request.url.path == '/api/expansion-rubric':
+        payload = project(payload, lang, 'rubric')
+    elif request.url.path == '/api/expansion-runs':
+        payload = project(payload, lang, 'reports')
+    elif '/expansion-runs' in request.url.path:
+        payload = project(payload, lang)
+    headers = dict(response.headers)
+    headers.pop('content-length', None)
+    headers['Content-Language'] = lang
+    return JSONResponse(payload, status_code=response.status_code, headers=headers, background=response.background)
+
 
 
 def account(aid):
@@ -176,18 +211,18 @@ class PDFSelection(BaseModel):
     run_ids: list[str] = Field(min_length=1, max_length=50)
 
 
-def pdf_response(selected, filename):
+def pdf_response(selected, filename, lang='id'):
     if any(run['status'] not in ('done', 'review', 'failed') for run in selected):
         raise HTTPException(409, 'Analisis yang masih aktif belum dapat diunduh. Perbarui pilihan laporan.')
     from .pdf_reports import render
-    return Response(render(selected), media_type='application/pdf',
+    return Response(render(selected, lang=lang), media_type='application/pdf',
                     headers={'Content-Disposition': f'attachment; filename="{filename}.pdf"'})
 
 
 @app.post('/api/expansion-runs/export/pdf')
-def pdf_batch(selection: PDFSelection):
+def pdf_batch(selection: PDFSelection, lang: Literal['id', 'en'] = 'id'):
     selected = [get_run(rid) for rid in dict.fromkeys(selection.run_ids)]
-    return pdf_response(selected, 'evaly-reports')
+    return pdf_response(selected, 'evaly-reports', lang)
 
 
 @app.delete('/api/expansion-runs/{rid}', status_code=204)
@@ -201,10 +236,11 @@ def delete_run(rid: str):
 
 
 @app.get('/api/expansion-runs/{rid}/export/{format}')
-def export(rid: str, format: str):
+def export(rid: str, format: str, lang: Literal['id', 'en'] = 'id'):
     run = get_run(rid)
     if format == 'pdf':
-        return pdf_response([run], f'evaly-{run["account_id"]}-{run["id"]}')
+        return pdf_response([run], f'evaly-{run["account_id"]}-{run["id"]}', lang)
+    run = project(run, lang)
     result = run.get('result')
     if not result:
         raise HTTPException(409, 'Analisis belum memiliki hasil akhir')
@@ -227,6 +263,9 @@ def export(rid: str, format: str):
                          'rubric_version': run['rubric_version'], 'rubric': json.dumps(run.get('rubric', {}), ensure_ascii=False), 'evidence_paths': json.dumps(result.get('evidence_paths', []), ensure_ascii=False),
                          'review_reasons': json.dumps(run['review_reasons'], ensure_ascii=False), 'next_steps': json.dumps(run['next_steps'], ensure_ascii=False), 'assumptions': '; '.join(calc['assumptions']), 'gateway': gateway(run), 'provenance': json.dumps({'supporting': result.get('provenance', []), 'evaluated': result.get('evaluated_provenance', [])}, ensure_ascii=False)})
         content, media, suffix = '\ufeff'+stream.getvalue(), 'text/csv; charset=utf-8', 'csv'
+    elif format == 'md' and lang == 'en':
+        from .localized_exports import markdown
+        content, media, suffix = markdown(run, lang), 'text/markdown; charset=utf-8', 'md'
     elif format == 'md':
         content = f"# Account Expansion: {run['account_name']} ({run['account_id']})\n\n{summary.get('title', result['title'])}\n\n"
         if score:

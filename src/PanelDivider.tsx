@@ -1,3 +1,4 @@
+import { t, useLanguage } from './i18n';
 import { useRef } from 'react';
 
 export default function PanelDivider({
@@ -7,6 +8,7 @@ export default function PanelDivider({
   ratio: number;
   onChange: (value: number) => void;
 }) {
+  useLanguage();
   const dragging = useRef(false);
   function apply(element: HTMLElement, value: number) {
     const width = element.parentElement!.getBoundingClientRect().width;
@@ -21,12 +23,12 @@ export default function PanelDivider({
       className="panel-divider"
       role="separator"
       tabIndex={0}
-      aria-label="Lebar sidebar analisis"
+      aria-label={t('Lebar sidebar analisis')}
       aria-orientation="vertical"
       aria-valuemin={0}
       aria-valuemax={60}
       aria-valuenow={Math.round(ratio)}
-      title="Geser untuk mengubah lebar. Klik dua kali untuk reset."
+      title={t('Geser untuk mengubah lebar. Klik dua kali untuk reset.')}
       onDoubleClick={(e) => apply(e.currentTarget, 100 / 3)}
       onKeyDown={(e) => {
         if (['ArrowLeft', 'ArrowRight', 'Home', 'Enter'].includes(e.key)) {

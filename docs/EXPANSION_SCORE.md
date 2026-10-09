@@ -43,9 +43,15 @@ Penjumlahan poin parameter menghasilkan skor dasar. Batas bukti dapat menurunkan
 
 EP-2 memetakan `source_ids` ke snapshot input: CRM (akun, kontak, deal, riwayat kerja, karyawan), interaksi, usage (harian/fitur), support/produk (tiket, bug, fitur, rilis), kontrak/billing, keputusan. Tidak ada kategori sumber yang otomatis lebih unggul.
 
+## Interpretasi jawaban dan status
+
+Untuk Noul, nilai ≤40% tidak mendukung pernyataan parameter; >40% dan <60% ambigu dan memicu review; ≥60% mendukung. Batas 40/60 merupakan kebijakan aplikasi, bukan hasil kalibrasi akurasi model. Pada BR-1/BR-4, dukungan tinggi berarti hambatan/kebutuhan konfirmasi tinggi, sehingga kontribusi skor dibalik.
+
+Confidence Choice/Score <60%, probabilitas tertinggi seri, atau kategori unclear juga memicu review. Ambang ini menilai jawaban per parameter, bukan mengategorikan skor gabungan sebagai lulus/gagal. Agregasi tetap memakai nilai kontinu: Noul 65% memberi kontribusi mentah 0,65 untuk parameter positif. **Selesai** berarti proses tanpa pemicu review; skor tinggi tidak menghapus **Perlu ditinjau**.
+
 ## Pembatas dan kelengkapan
 
-Pipeline netral hanya jika tidak ada kandidat jalur berbasis record, PC-1 ≤0,4, PC-2 memilih none dengan confidence ≥60% dan tidak seri, serta PC-3 tidak berlaku. Ketiganya tetap ditampilkan, tetapi dikeluarkan dari agregasi; bobot kelompok aktif menjadi 95%. Klaim pipeline tanpa jalur tidak netral: kontribusi PC-1/PC-2 menjadi 0 dan aturan review tetap berlaku.
+Pipeline netral hanya jika tidak ada kandidat jalur berbasis record, PC-1 ≤0,4, PC-2 memilih none dengan confidence ≥60% dan tidak seri, serta PC-3 tidak berlaku. Ketiganya tetap ditampilkan, tetapi dikeluarkan dari agregasi; jumlah bobot kelompok aktif menjadi 95: OI 30 + EP 30 + FE 15 + BR 20. Pembagi 95 menormalkan kembali hasil ke skala 0–100; jika semua kelompok termasuk PC berlaku, pembaginya 100. Klaim pipeline tanpa jalur tidak netral: kontribusi PC-1/PC-2 menjadi 0 dan aturan review tetap berlaku.
 
 Satu sumber boleh selesai dengan catatan. Kontribusi EP-3 maksimal 2/3, EP-5 menjadi 0. Klaim EP-3 beberapa sumber yang bertentangan dengan snapshot memicu review. Beberapa record dari satu berkas tetap satu sumber.
 
@@ -66,7 +72,7 @@ OI = 1; EP = (1 + 1 + 2/3 + 1 + 0)/5 = 0,7333; FE = 1; BR = 1
 Skor = 100 × (30×1 + 30×0,7333 + 15×1 + 20×1)/95 = 91,6%
 ```
 
-Ini contoh formula, bukan hasil model C02/C06.
+Pembagi 95 berasal dari `30 + 30 + 15 + 20`; bobot PC 5 dikeluarkan karena pipeline netral. Ini contoh formula, bukan hasil model C02/C06.
 
 ## API dan riwayat
 

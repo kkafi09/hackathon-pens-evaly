@@ -34,19 +34,20 @@
 
 Evaly helps account management and sales teams answer **“Where can we grow revenue from existing customers?”** through a context graph connecting conversations, contacts, contracts, product usage, and support tickets.
 
-Jev through OpenRouter evaluates expansion signals and customer intent. Code calculates estimated value, while the graph makes the underlying sources accessible. Results bring together opportunities, questions to confirm, and next steps.
+Jev through OpenRouter evaluates **19 parameters across five groups**: opportunity (OI), evidence (EP), financial estimation (FE), readiness and barriers (BR), and pipeline connections (PC). Code verifies evidence, calculates estimated value, and produces the validation conclusion and aggregate **expansion support score**. OI-3 measures intent as one parameter; its confidence does not represent the overall result.
 
-The KasirNusa dataset covers **40 customers, 5 prospects, and 620 outlets**, with a snapshot date of October 1, 2026. Account Expansion is available for existing customers; four other tracks remain locked. The dashboard interface and source dataset are in Indonesian.
+The KasirNusa dataset covers **40 customers, 5 prospects, and 620 outlets**, with a snapshot date of October 1, 2026. Account Expansion is available for existing customers; four other tracks remain locked. The dashboard and exports support Indonesian and English. Indonesian is the initial language; choose **ID / EN** in the header to switch. The preference persists in your browser. Source records, names, quotes, and model audit payloads remain in their original language. Switching languages does not rerun an analysis.
 
 ## Features
 
 | Feature                   | What you can do                                                                                          |
 | ------------------------- | -------------------------------------------------------------------------------------------------------- |
 | **Context graph**         | Search accounts, explore relationships, and open customer context while preserving your canvas position. |
-| **Account Expansion**     | Classify interactions, assess intent, review tickets, and get recommended actions.                       |
+| **Account Expansion**     | Evaluate 19 rubric parameters, inspect the aggregate support score, and review suggested actions.        |
 | **Traceable evidence**    | Distinguish evaluated data from supporting evidence; inspect original messages, contracts, and quotes.   |
 | **Readable results**      | Review conclusions, reasons for review, next steps, and value calculations.                              |
-| **History and exports**   | Replay saved snapshots, export Markdown/CSV, or delete an individual result with confirmation.           |
+| **History and exports**   | Replay snapshots; export Markdown/CSV/PDF; filter reports and download a PDF of up to 50 results.        |
+| **Indonesian / English**  | Switch dashboard and Markdown/CSV/PDF language while preserving source evidence and numeric results.     |
 | **Light and dark themes** | Follow your device theme or choose a preference, with matching logos and evidence colors.                |
 
 ## How it works
@@ -55,25 +56,40 @@ The KasirNusa dataset covers **40 customers, 5 prospects, and 620 outlets**, wit
 
 1. Click an account in the graph and choose **Account Expansion**. Opening the panel does not call Jev.
 2. Choose **Run new analysis** (`Jalankan analisis baru`) or **View saved results** (`Lihat hasil tersimpan`). Replay shows the original evaluation time without a new model request.
-3. Follow the workflow, then open **Analysis results** (`Hasil analisis`) for conclusions, review reasons, estimated value, and next steps.
-4. Click evidence to open its record and highlight the graph. Use **Focus evidence** (`Fokus bukti`) to center the canvas, then export a summary for follow-up.
+3. Use **Analysis workflow** (`Workflow analisis`) for progress/history, **Data & evidence** (`Data & bukti`) for sources, and **Analysis results** (`Hasil analisis`) for validation, support score, estimated value, and next steps. **View result explanation** (`Lihat penjelasan hasil`) opens the explanation, including **How the score is calculated** (`Bagaimana skor dihitung`) and all 19 contributions.
+4. Search all graph nodes by account, contact, email, message, or ticket. Click evidence to open its record and highlight the graph; use **Focus evidence** (`Fokus bukti`) to center the canvas.
+5. Open **Report** for saved evaluations across accounts. Search by account name/ID, filter by process status, and browse pages. Open an evaluation or select up to 50 results for one PDF. Per-result exports support Markdown, CSV, and PDF; deleting a completed, review, or failed result requires confirmation.
 
 <details>
 <summary><strong>Inside the workflow: context, Jev, and calculations</strong></summary>
 
-| Stage                       | Role                                                                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| **Collect context**         | Retrieve account records and usage summaries from the active MySQL dataset.                                                         |
-| **Choice — classification** | Categorize interactions as expansion, complaint, renewal, other, or unclear.                                                        |
-| **Score — intent**          | Assess customer expansion messages and related threads: no explicit intent, exploration, concrete plan, or request for quotation.   |
-| **Noul — tickets**          | Check whether evidence explicitly requires an issue to be resolved before expansion. An open ticket is not automatically a blocker. |
-| **Code + Choice — results** | Extract candidate outlet counts, select a count supported by context, calculate value, and choose a next action.                    |
+| Stage                       | Role                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Collect context**         | Retrieve account records, threads, contracts, usage summaries, tickets, and pipeline candidates from MySQL.          |
+| **Opportunity — OI-1–OI-4** | Classify messages, then evaluate signal presence, type, evidence of intent, and expansion details.                   |
+| **Financial — FE-1–FE-3**   | Select a supported outlet-count candidate, calculate value in code, and evaluate input sufficiency and verification. |
+| **Readiness — BR-1–BR-4**   | Evaluate barriers, readiness, and information that still needs confirmation.                                         |
+| **Pipeline — PC-1–PC-3**    | Evaluate relationships supported by source records, keeping new-customer pipeline separate.                          |
+| **Evidence — EP-1–EP-5**    | Validate the draft recommendation, source traceability, graph paths, and relevant cross-source support.              |
+| **Results — code**          | Produce the validation summary, aggregate rubric score, review reasons, estimated value, and next steps.             |
+
+These groups use Choice, Score, and Noul. Message classification, outlet selection, and action selection support the workflow; they do not add questions to the 19-parameter rubric.
 
 Purple marks expansion evidence and related threads, blue marks calculation inputs, and yellow marks context or information to confirm. Highlights show the role of sources in the workflow, not the model's internal reasoning.
 
 Each run stores evidence snapshots, Jev responses, the actual model, gateway, rubric version, timestamps, and dataset hash. Older results use the information originally saved and show provenance limitations where applicable.
 
 </details>
+
+## Validation and expansion support score
+
+The conclusion includes **Skor dukungan ekspansi** from all applicable rubric parameters using [expansion-score-v1.0](docs/EXPANSION_SCORE.md). The OI/EP/FE/BR/PC group weights are 30/30/15/20/5; code verifies evidence, finances and neutral pipeline applicability before publishing a score. `result.expansion_score` exposes the group scores, all 19 parameter contributions and limits. The same score is used by the panel, reports and exports without model calls or history rewrites.
+
+The 19 validation questions remain `expansion-v2.0`. Conclusions use the separately versioned `validation-v1.0` rules in [RUBRIK_EVALUASI.md](RUBRIK_EVALUASI.md). A completed evaluation is not a guarantee that an opportunity will succeed. OI-3 confidence appears only in parameter details. A single supporting source may complete with a limitation; financial uncertainty and invalid evidence require review. Reports and exports use the same derived `result.validation_summary`, including separate supporting-record, source and evaluated-record counts. Older v2 results are adapted on read without rewriting stored history or calling the model.
+
+For Noul, ≤40% does not support the parameter statement, >40% and <60% is ambiguous and requires review, and ≥60% supports it. Choice/Score confidence below 60%, tied highest probabilities, or an unclear category also require review. These are application policy thresholds, not calibrated accuracy guarantees. High support for a barrier question means a barrier exists; BR-1/BR-4 contributions are inverted when scoring.
+
+When pipeline is verified as neutral under the scoring rules, its weight of 5 is excluded: the denominator is **30 + 30 + 15 + 20 = 95**, rather than 100. All valid, applicable parameter values remain continuous in the aggregation. A high aggregate score does not override review status. Missing required validation or failed evidence checks prevent publication of a final score.
 
 ## Getting started
 
@@ -143,19 +159,26 @@ bun run build
 
 If the backend is already running, restart it after the first build so that `dist` is mounted. Open [localhost:8000](http://127.0.0.1:8000).
 
-| Endpoint                                      | Purpose                                                                                  |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `GET /api/health`                             | Gateway/model configuration and key availability; does not test OpenRouter connectivity. |
-| `GET /api/health/live`                        | Backend process liveness; does not access MySQL or OpenRouter.                           |
-| `GET /api/health/ready`                       | MySQL, migrations, and active dataset readiness: `200` when ready, otherwise `503`.      |
-| `GET /api/graph?account_id=C02`               | Global graph or account context.                                                         |
-| `GET /api/accounts/{id}/context`              | Account sources and context summary.                                                     |
-| `POST /api/accounts/{id}/expansion-runs`      | Start analysis; returns `202` with a run ID.                                             |
-| `GET /api/accounts/{id}/expansion-runs`       | Account analysis history.                                                                |
-| `GET /api/expansion-runs/{run_id}`            | Stage status, results, and errors.                                                       |
-| `DELETE /api/expansion-runs/{run_id}`         | Delete one result: `204`; not found: `404`; active run: `409`.                           |
-| `GET /api/expansion-runs/{run_id}/export/md`  | Export a Markdown summary.                                                               |
-| `GET /api/expansion-runs/{run_id}/export/csv` | Export opportunities as CSV.                                                             |
+| Endpoint                                                        | Purpose                                                                                  |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GET /api/health`                                               | Gateway/model configuration and key availability; does not test OpenRouter connectivity. |
+| `GET /api/health/live`                                          | Backend process liveness; does not access MySQL or OpenRouter.                           |
+| `GET /api/health/ready`                                         | MySQL, migrations, and active dataset readiness: `200` when ready, otherwise `503`.      |
+| `GET /api/graph/search?q=C02&limit=20&offset=0`                 | Search all graph nodes with pagination.                                                  |
+| `GET /api/expansion-rubric`                                     | Current rubric version, questions, criteria, and workflow steps.                         |
+| `GET /api/graph?account_id=C02`                                 | Global graph or account context.                                                         |
+| `GET /api/accounts/{id}/context`                                | Account sources and context summary.                                                     |
+| `POST /api/accounts/{id}/expansion-runs`                        | Start analysis; returns `202` with a run ID.                                             |
+| `GET /api/accounts/{id}/expansion-runs`                         | Account analysis history.                                                                |
+| `GET /api/expansion-runs/{run_id}`                              | Stage status, results, and errors.                                                       |
+| `GET /api/expansion-runs?q=C02&status=review&limit=25&offset=0` | Search/filter saved reports across accounts with pagination.                             |
+| `GET /api/expansion-runs/{run_id}/export/pdf`                   | Export one result as PDF.                                                                |
+| `POST /api/expansion-runs/export/pdf`                           | Export 1–50 unique results as PDF; body: `{ "run_ids": ["run-id"] }`.                    |
+| `DELETE /api/expansion-runs/{run_id}`                           | Delete one result: `204`; not found: `404`; active run: `409`.                           |
+| `GET /api/expansion-runs/{run_id}/export/md`                    | Export a Markdown summary.                                                               |
+| `GET /api/expansion-runs/{run_id}/export/csv`                   | Export opportunities as CSV.                                                             |
+
+API endpoints accept optional `lang=id|en` (default `id`); unsupported languages return `422`. Export requests, including batch PDF, use the same parameter. Field names, CSV column headers, category IDs, and raw answers remain stable. See [language support](docs/LANGUAGES.md).
 
 The frontend polls while analysis is active. The backend runs as one worker/instance; runs interrupted by a restart are marked as failed. OpenRouter requests use a 60-second timeout and up to three attempts for HTTP `429` and `5xx`. Failures are displayed without simulated results.
 
@@ -183,6 +206,9 @@ The detailed guides below are currently in Indonesian.
 | Guide                                                      | Contents                                                                                          |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | [Deployment and MySQL](DEPLOYMENT.md)                      | Docker images, environment configuration, container migrations/seeding, health checks, and CI/CD. |
+| [Language support](docs/LANGUAGES.md)                      | Dashboard and export locales, presentation-only translation, and original evidence.               |
+| [Evaluation rubric](RUBRIK_EVALUASI.md)                    | The 19 questions, validation statuses, review rules, and evidence limitations.                    |
+| [Expansion support score](docs/EXPANSION_SCORE.md)         | Aggregation formula, weights, neutral pipeline, limits, and parameter traceability.               |
 | [Data guide](docs/DATA_GUIDE.md)                           | Dataset sources, relationships, business rules, and calculation inputs.                           |
 | [Jev and Account Expansion](docs/JEV_ACCOUNT_EXPANSION.md) | Choice, Score, Noul, confidence, and analysis traceability.                                       |
 
@@ -205,7 +231,3 @@ bun run test:e2e
 Tests use controlled Jev responses without paid API calls. Point `TEST_DATABASE_URL` and `DATABASE_URL` to a schema ending in `_test`, and leave the OpenRouter key empty for the Playwright backend.
 
 To avoid reusing a running development or production preview, set `CI=1`, `E2E_BACKEND_PORT=8001`, and `E2E_FRONTEND_PORT=5174` for browser tests. The Vite test proxy follows `E2E_BACKEND_PORT`.
-
-The conclusion also includes **Skor dukungan ekspansi** from all applicable rubric parameters using [expansion-score-v1.0](docs/EXPANSION_SCORE.md). The OI/EP/FE/BR/PC group weights are 30/30/15/20/5; code verifies evidence, finances and neutral pipeline applicability before publishing a score. `result.expansion_score` exposes the group scores, all 19 parameter contributions and limits. The same score is used by the panel, reports and exports without model calls or history rewrites.
-
-The 19 validation questions remain `expansion-v2.0`. Conclusions use the separately versioned `validation-v1.0` rules in [RUBRIK_EVALUASI.md](RUBRIK_EVALUASI.md). A completed evaluation is not a guarantee that an opportunity will succeed. OI-3 confidence appears only in parameter details. A single supporting source may complete with a limitation; financial uncertainty and invalid evidence require review. Reports and exports use the same derived `result.validation_summary`, including separate supporting-record, source and evaluated-record counts. Older v2 results are adapted on read without rewriting stored history or calling the model.

@@ -92,13 +92,13 @@ async function setup(page: Page, withActive = false, withAnother = false) {
     fail: false,
   };
   if (withAnother) state.entries.push({ ...run, id: 'another-legacy-run' });
-  await page.route('**/api/expansion-runs/another-legacy-run', (route) =>
+  await page.route('**/api/expansion-runs/another-legacy-run?*', (route) =>
     route.fulfill({ json: state.entries.find((entry) => entry.id === 'another-legacy-run') }),
   );
-  await page.route('**/api/accounts/C02/expansion-runs', (route) =>
+  await page.route('**/api/accounts/C02/expansion-runs?*', (route) =>
     route.fulfill({ json: state.entries }),
   );
-  await page.route('**/api/expansion-runs/controlled-review-delete', (route) => {
+  await page.route('**/api/expansion-runs/controlled-review-delete?*', (route) => {
     if (route.request().method() !== 'DELETE') return route.fulfill({ json: run });
     state.deletes++;
     if (state.fail)
@@ -315,7 +315,7 @@ test('legacy result without opportunity stays readable and resets explanation fo
 test('source loading error is explained in the data tab without workflow controls', async ({
   page,
 }) => {
-  await page.route('**/api/accounts/C02/context', (route) =>
+  await page.route('**/api/accounts/C02/context?*', (route) =>
     route.fulfill({
       status: 503,
       json: { detail: 'Data sumber sedang tidak tersedia.' },

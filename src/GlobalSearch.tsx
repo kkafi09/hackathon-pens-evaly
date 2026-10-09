@@ -1,3 +1,4 @@
+import { t, tx, useLanguage } from './i18n';
 import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { api, type GraphItem } from './types';
@@ -12,6 +13,7 @@ export default function GlobalSearch({
 }: {
   onSelect: (hit: SearchHit, account: string) => void;
 }) {
+  useLanguage();
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<SearchHit[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,9 +76,9 @@ export default function GlobalSearch({
     >
       <Search size={15} />
       <input
-        aria-label="Cari semua node"
+        aria-label={t('Cari semua node')}
         maxLength={300}
-        placeholder="Cari node, email, pesan, tiket…"
+        placeholder={t('Cari node, email, pesan, tiket…')}
         value={query}
         role="combobox"
         aria-expanded={!!query.trim()}
@@ -112,24 +114,31 @@ export default function GlobalSearch({
       {!!query.trim() && (
         <div className="search-results global-results">
           {busy ? (
-            <p role="status">Mencari seluruh node…</p>
+            <p role="status">{t('Mencari seluruh node…')}</p>
           ) : error ? (
-            <p role="alert">{error}</p>
+            <p role="alert">{tx(error)}</p>
           ) : (
             <>
               {accountChoice ? (
                 <div className="search-account-choice">
-                  <strong>Pilih konteks akun untuk {accountChoice.id}</strong>
+                  <strong>
+                    {t('Pilih konteks akun untuk') + ' '}
+                    {accountChoice.id}
+                  </strong>
                   {accountChoice.accounts.map((account) => (
                     <button key={account.id} onClick={() => choose(accountChoice, account.id)}>
                       {account.id} · {account.name}
                     </button>
                   ))}
-                  <button onClick={() => setAccountChoice(null)}>Kembali ke hasil</button>
+                  <button onClick={() => setAccountChoice(null)}>{t('Kembali ke hasil')}</button>
                 </div>
               ) : (
                 <>
-                  <div id="node-search-results" role="listbox" aria-label="Hasil pencarian node">
+                  <div
+                    id="node-search-results"
+                    role="listbox"
+                    aria-label={t('Hasil pencarian node')}
+                  >
                     {items.map((hit, i) => (
                       <button
                         id={`search-hit-${i}`}
@@ -148,23 +157,24 @@ export default function GlobalSearch({
                       </button>
                     ))}
                   </div>
-                  {!items.length && <p>Node tidak ditemukan</p>}
+                  {!items.length && <p>{t('Node tidak ditemukan')}</p>}
                   {!!items.length && (
                     <div className="search-paging">
                       <span>
-                        {offset + 1}–{Math.min(offset + items.length, total)} dari {total}
+                        {offset + 1}–{Math.min(offset + items.length, total)} {t('dari') + ' '}
+                        {total}
                       </span>
                       <button
                         disabled={!offset}
                         onClick={() => setOffset((v) => Math.max(0, v - 20))}
                       >
-                        Sebelumnya
+                        {t('Sebelumnya') + ' '}
                       </button>
                       <button
                         disabled={offset + items.length >= total}
                         onClick={() => setOffset((v) => v + 20)}
                       >
-                        Berikutnya
+                        {t('Berikutnya') + ' '}
                       </button>
                     </div>
                   )}

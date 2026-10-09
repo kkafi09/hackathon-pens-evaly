@@ -12,7 +12,7 @@ BACKEND = {'Dockerfile.backend', 'requirements.txt', 'alembic.ini'}
 def select_components(paths, manual=False):
     selected = set()
     for path in paths:
-        if path in SHARED:
+        if path in SHARED or path.startswith('locales/'):
             selected.update(['frontend', 'backend'])
         if path in FRONTEND or path.startswith(('src/', 'public/', 'e2e/')):
             selected.add('frontend')

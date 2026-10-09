@@ -10,11 +10,11 @@ const fixture = JSON.parse(readFileSync('runtime/e2e-v2.json', 'utf-8'));
 const validationFixtures = JSON.parse(readFileSync('runtime/e2e-validation.json', 'utf-8'));
 
 async function open(page: Page, controlled = fixture) {
-  await page.route('**/api/health', (route) => route.fulfill({ json: { jev_configured: true } }));
-  await page.route(`**/api/accounts/${controlled.account_id}/expansion-runs`, (route) =>
+  await page.route('**/api/health?*', (route) => route.fulfill({ json: { jev_configured: true } }));
+  await page.route(`**/api/accounts/${controlled.account_id}/expansion-runs?*`, (route) =>
     route.fulfill({ json: route.request().method() === 'POST' ? controlled : [] }),
   );
-  await page.route(`**/api/expansion-runs/${controlled.id}`, (route) =>
+  await page.route(`**/api/expansion-runs/${controlled.id}?*`, (route) =>
     route.fulfill({ json: controlled }),
   );
   await page.goto('/');

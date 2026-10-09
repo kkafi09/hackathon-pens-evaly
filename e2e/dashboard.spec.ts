@@ -129,7 +129,7 @@ test('completed analysis displays values, evidence and exports', async ({ page }
     rubric_version: 'test',
     result,
   };
-  await page.route('**/api/accounts/C06/expansion-runs', (route) =>
+  await page.route('**/api/accounts/C06/expansion-runs?*', (route) =>
     route.fulfill({ json: route.request().method() === 'POST' ? run : [] }),
   );
   await page.goto('/');
@@ -155,7 +155,7 @@ test('completed analysis displays values, evidence and exports', async ({ page }
   await expect(page.getByText('I0300: Belum ada balasan tercatat', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ringkasan Markdown' })).toHaveAttribute(
     'href',
-    '/api/expansion-runs/browser-success/export/md',
+    '/api/expansion-runs/browser-success/export/md?lang=id',
   );
   await page.getByRole('button', { name: 'I0300', exact: true }).click();
   await expect(page.locator('.evidence-popover')).toContainText('Ekspansi Jakarta 2027');
@@ -209,10 +209,10 @@ test('failed API is visible and real stored responses can be replayed', async ({
     error: null,
     stale: true,
   };
-  await page.route('**/api/accounts/C06/expansion-runs', async (route) =>
+  await page.route('**/api/accounts/C06/expansion-runs?*', async (route) =>
     route.fulfill({ json: route.request().method() === 'POST' ? failed : history }),
   );
-  await page.route('**/api/expansion-runs/test-replay', async (route) =>
+  await page.route('**/api/expansion-runs/test-replay?*', async (route) =>
     route.fulfill({ json: replay }),
   );
   await page.goto('/');
@@ -294,13 +294,13 @@ test('running stages preserve viewport and missing graph records open saved snap
       },
     ],
   };
-  await page.route('**/api/health', (route) =>
+  await page.route('**/api/health?*', (route) =>
     route.fulfill({ json: { jev_configured: true, gateway: 'openrouter' } }),
   );
-  await page.route('**/api/accounts/C02/expansion-runs', (route) =>
+  await page.route('**/api/accounts/C02/expansion-runs?*', (route) =>
     route.fulfill({ json: route.request().method() === 'POST' ? run : [] }),
   );
-  await page.route('**/api/expansion-runs/controlled-running', (route) =>
+  await page.route('**/api/expansion-runs/controlled-running?*', (route) =>
     route.fulfill({ json: run }),
   );
   await page.goto('/');

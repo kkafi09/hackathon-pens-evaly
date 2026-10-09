@@ -1,3 +1,4 @@
+import { t, presentText as tx, useLanguage, withLanguage } from './i18n';
 import { useCallback, useEffect, useState } from 'react';
 import { Download, ExternalLink, Trash2 } from 'lucide-react';
 import DeleteRunDialog from './DeleteRunDialog';
@@ -26,8 +27,8 @@ export type ReportRow = History & {
 export async function downloadPDF(ids: string[]) {
   const response = await fetch(
     ids.length === 1
-      ? `/api/expansion-runs/${encodeURIComponent(ids[0])}/export/pdf`
-      : '/api/expansion-runs/export/pdf',
+      ? withLanguage(`/api/expansion-runs/${encodeURIComponent(ids[0])}/export/pdf`)
+      : withLanguage('/api/expansion-runs/export/pdf'),
     ids.length === 1
       ? undefined
       : {
@@ -56,6 +57,7 @@ export default function ReportPage({
   onOpen: (row: ReportRow) => void;
   onDeleted: (id: string) => void;
 }) {
+  useLanguage();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(0);
@@ -131,11 +133,11 @@ export default function ReportPage({
     }
   }
   return (
-    <section className="report-page" aria-label="Report analisis">
+    <section className="report-page" aria-label={t('Report analisis')}>
       <div className="report-heading">
         <div>
-          <h1>Report analisis</h1>
-          <p>Seluruh evaluasi tersimpan lintas akun.</p>
+          <h1>{t('Report analisis')}</h1>
+          <p>{t('Seluruh evaluasi tersimpan lintas akun.')}</p>
         </div>
         <button
           className="primary"
@@ -143,14 +145,14 @@ export default function ReportPage({
           onClick={() => download(selected)}
         >
           <Download size={16} />{' '}
-          {downloading ? 'Menyiapkan PDF…' : `Unduh PDF pilihan (${selected.length}/50)`}
+          {downloading ? t('Menyiapkan PDF…') : t('Unduh PDF pilihan ({0}/50)', [selected.length])}
         </button>
       </div>
       <div className="report-filters">
         <input
-          aria-label="Cari report akun"
+          aria-label={t('Cari report akun')}
           maxLength={300}
-          placeholder="Cari nama atau ID akun…"
+          placeholder={t('Cari nama atau ID akun…')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -158,47 +160,48 @@ export default function ReportPage({
           }}
         />
         <select
-          aria-label="Filter status report"
+          aria-label={t('Filter status report')}
           value={status}
           onChange={(e) => {
             setStatus(e.target.value);
             setPage(0);
           }}
         >
-          <option value="">Semua status</option>
+          <option value="">{t('Semua status')}</option>
           {['waiting', 'running', 'done', 'review', 'failed'].map((s) => (
             <option value={s} key={s}>
               {statusLabels[s as RunStatus]}
             </option>
           ))}
         </select>
-        <button onClick={refresh}>Perbarui</button>
+        <button onClick={refresh}>{t('Perbarui')}</button>
         <button disabled={!selected.length} onClick={() => setSelected([])}>
-          Kosongkan pilihan
+          {t('Kosongkan pilihan') + ' '}
         </button>
         <span>
-          {total} hasil · {selected.length} dipilih
+          {total} {t('hasil ·') + ' '}
+          {selected.length} {t('dipilih') + ' '}
         </span>
       </div>
       {error && (
         <p role="alert" className="report-error">
-          {error}
+          {tx(error)}
         </p>
       )}
       <div className="report-table-wrap" aria-busy={loading}>
         <table className="report-table">
           <thead>
             <tr>
-              <th>Pilih</th>
-              <th>Waktu</th>
-              <th>Akun</th>
-              <th>Status</th>
-              <th>Kesimpulan</th>
-              <th>Jenis sinyal / validasi</th>
-              <th>Neto / tahun</th>
-              <th>Tindakan berikutnya</th>
-              <th>Rubrik</th>
-              <th>Aksi</th>
+              <th>{t('Pilih')}</th>
+              <th>{t('Waktu')}</th>
+              <th>{t('Akun')}</th>
+              <th>{t('Status')}</th>
+              <th>{t('Kesimpulan')}</th>
+              <th>{t('Jenis sinyal / validasi')}</th>
+              <th>{t('Neto / tahun')}</th>
+              <th>{t('Tindakan berikutnya')}</th>
+              <th>{tx('Rubrik')}</th>
+              <th>{t('Aksi')}</th>
             </tr>
           </thead>
           <tbody>
@@ -207,7 +210,7 @@ export default function ReportPage({
                 <td>
                   <input
                     type="checkbox"
-                    aria-label={`Pilih report ${row.id}`}
+                    aria-label={t('Pilih report {0}', [row.id])}
                     checked={selected.includes(row.id)}
                     disabled={
                       !terminal(row.status) || (!selected.includes(row.id) && selected.length >= 50)
@@ -223,59 +226,61 @@ export default function ReportPage({
                 <td>
                   <strong>{row.account_id}</strong>
                   <br />
-                  {row.account_name || 'Nama belum tersimpan'}
+                  {row.account_name || t('Nama belum tersimpan')}
                 </td>
                 <td>
                   <span className={`status ${row.status}`}>{statusLabels[row.status]}</span>
                 </td>
                 <td>
-                  {row.title ||
-                    (row.status === 'failed' ? 'Analisis gagal' : 'Belum ada hasil akhir')}
-                  {row.validation_summary && <p>{row.validation_summary.summary}</p>}
+                  {tx(row.title) ||
+                    (row.status === 'failed' ? t('Analisis gagal') : t('Belum ada hasil akhir'))}
+                  {row.validation_summary && <p>{tx(row.validation_summary.summary)}</p>}
                   <ScoreHeadline score={row.expansion_score} />
                 </td>
                 <td>
                   {row.validation_summary ? (
                     <>
-                      {row.validation_summary.signal_type}
+                      {tx(row.validation_summary.signal_type)}
                       <br />
-                      {row.validation_summary.supporting_record_count} record pendukung ·{' '}
-                      {row.validation_summary.source_count} sumber ·{' '}
-                      {row.validation_summary.evaluated_record_count} record dievaluasi
+                      {row.validation_summary.supporting_record_count} {t('record pendukung ·')}{' '}
+                      {row.validation_summary.source_count} {t('sumber ·')}{' '}
+                      {row.validation_summary.evaluated_record_count} {t('record dievaluasi') + ' '}
                       {row.validation_summary.limitations.map((note) => (
-                        <p key={note}>{note}</p>
+                        <p key={tx(note)}>{tx(note)}</p>
                       ))}
                     </>
                   ) : row.rubric_version === 'expansion-v2.0' ? (
                     row.status === 'done' || row.status === 'review' ? (
-                      'Validasi tersimpan belum lengkap'
+                      t('Validasi tersimpan belum lengkap')
                     ) : (
-                      'Belum ada hasil akhir'
+                      t('Belum ada hasil akhir')
                     )
                   ) : (
-                    row.intent_label || 'Belum dinilai'
+                    tx(row.intent_label) || t('Belum dinilai')
                   )}
                 </td>
                 <td>
                   {money(row.net_annual_scenario)}
-                  {row.validation_summary && <small>{row.validation_summary.estimate_label}</small>}
+                  {row.validation_summary && (
+                    <small>{tx(row.validation_summary.estimate_label)}</small>
+                  )}
                 </td>
-                <td>{row.action_label || 'Belum ditentukan'}</td>
+                <td>{tx(row.action_label) || t('Belum ditentukan')}</td>
                 <td>{row.rubric_version}</td>
                 <td>
                   <div className="report-row-actions">
-                    <button aria-label={`Buka report ${row.id}`} onClick={() => onOpen(row)}>
+                    <button aria-label={t('Buka report {0}', [row.id])} onClick={() => onOpen(row)}>
                       <ExternalLink size={15} />
                     </button>
                     <button
-                      aria-label={`Unduh PDF ${row.id}`}
+                      aria-label={t('Unduh PDF {0}', [row.id])}
                       disabled={!terminal(row.status) || downloading}
                       onClick={() => download([row.id])}
                     >
                       <Download size={15} />
                     </button>
                     <button
-                      aria-label={`Hapus report ${row.id}`}
+                      aria-label={t('Hapus report {0}', [row.id])}
                       disabled={!terminal(row.status)}
                       onClick={() => {
                         setTarget(row);
@@ -292,10 +297,10 @@ export default function ReportPage({
               <tr>
                 <td colSpan={10}>
                   {loading
-                    ? 'Memuat report…'
+                    ? t('Memuat report…')
                     : error
-                      ? 'Report belum dapat dimuat.'
-                      : 'Belum ada report yang sesuai.'}
+                      ? t('Report belum dapat dimuat.')
+                      : t('Belum ada report yang sesuai.')}
                 </td>
               </tr>
             )}
@@ -304,20 +309,22 @@ export default function ReportPage({
       </div>
       <div className="report-pagination">
         <button disabled={!page} onClick={() => setPage((v) => v - 1)}>
-          Sebelumnya
+          {t('Sebelumnya') + ' '}
         </button>
         <span>
-          Halaman {page + 1} dari {Math.max(1, Math.ceil(total / 25))}
+          {t('Halaman') + ' '}
+          {page + 1} {t('dari') + ' '}
+          {Math.max(1, Math.ceil(total / 25))}
         </span>
         <button disabled={(page + 1) * 25 >= total} onClick={() => setPage((v) => v + 1)}>
-          Berikutnya
+          {t('Berikutnya') + ' '}
         </button>
       </div>
       <DeleteRunDialog
         target={target}
-        account={target ? `${target.account_id} · ${target.account_name || ''}` : ''}
+        account={target ? t('{0} · {1}', [target.account_id, target.account_name || '']) : ''}
         busy={deleting}
-        error={deleteError}
+        error={tx(deleteError)}
         onCancel={() => {
           if (!deleting) setTarget(null);
         }}

@@ -9,7 +9,9 @@ test('global search selects real account contexts and discards stale responses',
   await page.goto('/');
   const search = page.getByRole('combobox', { name: 'Cari semua node' });
   await search.fill('FEAT-01');
-  await expect(page.getByRole('option').first()).toContainText('FEAT-01');
+  await expect(page.locator('.search-results').getByRole('option').first()).toContainText(
+    'FEAT-01',
+  );
   await page.keyboard.press('Enter');
   await expect(page.getByText('Pilih konteks akun untuk FEAT-01')).toBeVisible();
   await page
@@ -41,9 +43,13 @@ test('global search selects real account contexts and discards stale responses',
   await search.fill('old');
   await started;
   await search.fill('new');
-  await expect(page.getByRole('option').first()).toContainText('Newest response');
+  await expect(page.locator('.search-results').getByRole('option').first()).toContainText(
+    'Newest response',
+  );
   await page.waitForTimeout(700);
-  await expect(page.getByRole('option').first()).not.toContainText('Old response');
+  await expect(page.locator('.search-results').getByRole('option').first()).not.toContainText(
+    'Old response',
+  );
   await search.fill('failure');
   await expect(page.getByRole('alert')).toContainText('Pencarian tidak tersedia');
   await search.fill('empty');
@@ -74,7 +80,7 @@ test('full canvas, global node search and resizable analysis sidebar preserve vi
   await expect(page.getByTestId('entity-I0253')).toHaveClass(/highlighted/);
   await page.getByRole('button', { name: 'Tutup bukti' }).click();
   await search.fill('C02');
-  await expect(page.getByRole('option').first()).toContainText('C02');
+  await expect(page.locator('.search-results').getByRole('option').first()).toContainText('C02');
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Tutup bukti' }).click();
   await page.getByRole('button', { name: 'Sesuaikan tampilan' }).click();
@@ -149,17 +155,17 @@ test('report table preserves choices, downloads PDFs, replays and deletes withou
     });
   });
   await page.route('**/api/expansion-runs/report-*', (route) => {
-    const id = route.request().url().split('/').pop()!;
+    const id = new URL(route.request().url()).pathname.split('/').pop()!;
     if (route.request().method() === 'DELETE') {
       rows = rows.filter((r) => r.id !== id);
       return route.fulfill({ status: 204 });
     }
     return route.fulfill({ json: { ...fixture, id } });
   });
-  await page.route('**/api/expansion-runs/**/export/pdf', (route) =>
+  await page.route('**/api/expansion-runs/**/export/pdf?*', (route) =>
     route.fulfill({ contentType: 'application/pdf', body: '%PDF-1.7\ncontrolled' }),
   );
-  await page.route('**/api/expansion-runs/export/pdf', (route) =>
+  await page.route('**/api/expansion-runs/export/pdf?*', (route) =>
     route.fulfill({ contentType: 'application/pdf', body: '%PDF-1.7\ncontrolled' }),
   );
   await page.goto('/');

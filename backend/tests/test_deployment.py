@@ -135,6 +135,7 @@ def test_single_component_does_not_touch_other_application(monkeypatch, componen
 
 @pytest.mark.parametrize('paths,expected', [
     (['src/App.tsx'], ['frontend']),
+    (['locales/en.json'], ['frontend', 'backend']),
     (['public/evaly-logo.svg', 'bun.lock'], ['frontend']),
     (['deploy/nginx.conf.template'], ['frontend']),
     (['backend/app.py', 'requirements.txt'], ['backend']),

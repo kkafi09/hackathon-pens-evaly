@@ -1,3 +1,4 @@
+import { t, tx, useLanguage } from './i18n';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
@@ -88,6 +89,7 @@ type EntityNode = Node<
   'entity'
 >;
 function Entity({ data }: NodeProps<EntityNode>) {
+  useLanguage();
   const e = data.entity,
     Icon = icons[e.kind] || Database;
   const special = e.id === 'C02' || e.id === 'C06';
@@ -102,22 +104,22 @@ function Entity({ data }: NodeProps<EntityNode>) {
       {data.proofRole && (
         <span className="proof-node-badge">
           {data.proofRole === 'expansion'
-            ? 'Bukti ekspansi'
+            ? t('Bukti ekspansi')
             : data.proofRole === 'calculation'
-              ? 'Dasar perhitungan'
-              : 'Konteks diperiksa'}
+              ? t('Dasar perhitungan')
+              : t('Konteks diperiksa')}
         </span>
       )}
       <div className="entity-top">
         <span>
-          <Icon size={13} /> {e.kind === 'account' ? e.id : names[e.kind]}
+          <Icon size={13} /> {e.kind === 'account' ? e.id : tx(names[e.kind])}
         </span>
         {special && <span className="focus-dot" />}
       </div>
-      <strong>{e.label}</strong>
+      <strong>{['usage', 'release'].includes(e.kind) ? tx(e.label) : e.label}</strong>
       <small>
         {e.kind === 'account'
-          ? `${e.record.paket || 'Prospek'} · ${e.record.jumlah_outlet} outlet`
+          ? t('{0} · {1} outlet', [e.record.paket || 'Prospek', e.record.jumlah_outlet])
           : e.id}
       </small>
       <Handle type="source" position={Position.Right} />
@@ -180,6 +182,7 @@ function positions(
   return points;
 }
 export default function App() {
+  const { language, setLanguage } = useLanguage();
   const { theme, toggle } = useTheme();
   const [base, setBase] = useState<GraphData | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
@@ -313,7 +316,7 @@ export default function App() {
       .map((e) => ({
         ...e,
         type: 'default',
-        label: focused && detail ? e.label.replaceAll('_', ' ') : undefined,
+        label: focused && detail ? tx(e.label, language).replaceAll('_', ' ') : undefined,
         style: {
           stroke:
             proofNodes.has(e.source) && proofNodes.has(e.target)
@@ -337,7 +340,7 @@ export default function App() {
         },
       }));
     return { nodes, edges };
-  }, [graph, focused, detail, filter, highlight, proof]);
+  }, [graph, focused, detail, filter, highlight, proof, language]);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!searchTarget.current)
@@ -354,7 +357,7 @@ export default function App() {
         ? {
             id: saved.id,
             label: saved.label,
-            source: `${saved.source} · snapshot evaluasi`,
+            source: t('{0} · snapshot evaluasi', [saved.source]),
             kind: liveItem?.kind || 'source',
             record: saved.record,
           }
@@ -403,15 +406,28 @@ export default function App() {
               />
             </div>
             <span className="header-divider" />
-            <span>Intelligence workspace</span>
+            <span>Evaluate Your Business Wisely</span>
           </div>
           <div className="header-right">
-            <nav aria-label="Navigasi utama" className="main-nav">
+            <select
+              className="language-select"
+              aria-label={t('Bahasa')}
+              value={language}
+              onChange={(event) => setLanguage(event.target.value as 'id' | 'en')}
+            >
+              <option value="id" lang="id">
+                ID
+              </option>
+              <option value="en" lang="en">
+                EN
+              </option>
+            </select>
+            <nav aria-label={t('Navigasi utama')} className="main-nav">
               <button
                 aria-current={page === 'graph' ? 'page' : undefined}
                 onClick={() => setPage('graph')}
               >
-                Graph
+                {t('Graph') + ' '}
               </button>
               <button
                 aria-current={page === 'report' ? 'page' : undefined}
@@ -421,18 +437,20 @@ export default function App() {
                   setInspected(null);
                 }}
               >
-                Report
+                {t('Report') + ' '}
               </button>
             </nav>
             <button
               type="button"
               className="theme-toggle inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink shadow-sm transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-brand"
-              aria-label={theme === 'dark' ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+              aria-label={theme === 'dark' ? t('Aktifkan mode terang') : t('Aktifkan mode gelap')}
               aria-pressed={theme === 'dark'}
               onClick={toggle}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-              <span className="hidden sm:inline">{theme === 'dark' ? 'Terang' : 'Gelap'}</span>
+              <span className="hidden sm:inline">
+                {theme === 'dark' ? t('Terang') : t('Gelap')}
+              </span>
             </button>
           </div>
         </header>
@@ -461,19 +479,21 @@ export default function App() {
           hidden={page !== 'graph'}
           style={{ '--panel-ratio': `${ratio}%` } as React.CSSProperties}
         >
-          <section className="graph-card" aria-label="Context graph pelanggan">
+          <section className="graph-card" aria-label={t('Context graph pelanggan')}>
             <div className="graph-toolbar">
               <div className="graph-title">
                 <Network size={18} />
-                <strong>{focused ? `${focused} · Konteks akun` : 'Context graph'}</strong>
-                <span className="count-pill">{graph?.nodes.length ?? 0} node</span>
+                <strong>{focused ? t('{0} · Konteks akun', [focused]) : 'Context graph'}</strong>
+                <span className="count-pill">
+                  {graph?.nodes.length ?? 0} {t('node')}
+                </span>
               </div>
               <div className="toolbar-actions">
                 {panelPresence.value && (
                   <button
                     className="reset-panel"
-                    aria-label="Reset lebar sidebar"
-                    title="Kembali ke rasio graph 8 : sidebar 4"
+                    aria-label={t('Reset lebar sidebar')}
+                    title={t('Kembali ke rasio graph 8 : sidebar 4')}
                     onClick={() => {
                       setRatio(100 / 3);
                       localStorage.setItem('evaly-panel-ratio', String(100 / 3));
@@ -490,12 +510,12 @@ export default function App() {
                       setInspected(null);
                     }}
                   >
-                    <ArrowLeft size={14} /> Semua akun
+                    <ArrowLeft size={14} /> {t('Semua akun') + ' '}
                   </button>
                 )}
                 <button
-                  title="Sesuaikan tampilan"
-                  aria-label="Sesuaikan tampilan"
+                  title={t('Sesuaikan tampilan')}
+                  aria-label={t('Sesuaikan tampilan')}
                   onClick={() => {
                     searchTarget.current = null;
                     setInspected(null);
@@ -533,7 +553,7 @@ export default function App() {
               />
               <label className="filter-select">
                 <select
-                  aria-label="Filter tipe akun"
+                  aria-label={t('Filter tipe akun')}
                   value={filter}
                   onChange={(e) => {
                     setFilter(e.target.value);
@@ -541,9 +561,9 @@ export default function App() {
                     setPanel(false);
                   }}
                 >
-                  <option value="all">Semua akun</option>
-                  <option value="pelanggan">Pelanggan</option>
-                  <option value="prospek">Prospek</option>
+                  <option value="all">{t('Semua akun')}</option>
+                  <option value="pelanggan">{t('Pelanggan')}</option>
+                  <option value="prospek">{t('Prospek')}</option>
                 </select>
                 <ChevronDown size={13} />
               </label>
@@ -593,13 +613,13 @@ export default function App() {
               {!base && !error && (
                 <div className="canvas-loading">
                   <span className="spinner" />
-                  Menghubungkan seluruh sumber data…
+                  {t('Menghubungkan seluruh sumber data…') + ' '}
                 </div>
               )}
               {error && (
                 <div className="canvas-error">
-                  {error}
-                  <button onClick={() => window.location.reload()}>Muat ulang</button>
+                  {tx(error)}
+                  <button onClick={() => window.location.reload()}>{t('Muat ulang')}</button>
                 </div>
               )}
               {visibleMenu && (
@@ -609,10 +629,10 @@ export default function App() {
                   inert={menuPresence.exiting}
                   style={{ left: visibleMenu.x, top: visibleMenu.y }}
                   role="menu"
-                  aria-label="Pilihan analisis akun"
+                  aria-label={t('Pilihan analisis akun')}
                 >
                   <div className="menu-heading">
-                    <span className="eyebrow">PILIH ANALISIS</span>
+                    <span className="eyebrow">{t('PILIH ANALISIS')}</span>
                     <strong>
                       {visibleMenu.entity.id} · {visibleMenu.entity.label}
                     </strong>
@@ -622,7 +642,7 @@ export default function App() {
                       <span className="menu-number">0{i + 1}</span>
                       <span>
                         {label}
-                        <small>Belum tersedia</small>
+                        <small>{t('Belum tersedia')}</small>
                       </span>
                       <LockKeyhole size={13} />
                     </button>
@@ -642,8 +662,8 @@ export default function App() {
                       Account Expansion
                       <small>
                         {visibleMenu.entity.record.tipe === 'pelanggan'
-                          ? 'Temukan peluang pertumbuhan'
-                          : 'Analisis ini untuk pelanggan existing'}
+                          ? t('Temukan peluang pertumbuhan')
+                          : t('Analisis ini untuk pelanggan existing')}
                       </small>
                     </span>
                     {visibleMenu.entity.record.tipe === 'pelanggan' ? (
@@ -661,14 +681,17 @@ export default function App() {
                 >
                   <button
                     className="close-icon"
-                    aria-label="Tutup bukti"
+                    aria-label={t('Tutup bukti')}
                     onClick={() => setInspected(null)}
                   >
                     <X size={16} />
                   </button>
-                  <span className="eyebrow">BUKTI SUMBER · {visibleEvidence.id}</span>
+                  <span className="eyebrow">
+                    {t('BUKTI SUMBER ·') + ' '}
+                    {visibleEvidence.id}
+                  </span>
                   <h3>{visibleEvidence.label}</h3>
-                  <small className="source-name">{visibleEvidence.source}</small>
+                  <small className="source-name">{tx(visibleEvidence.source)}</small>
                   <dl>
                     {Object.entries(visibleEvidence.record)
                       .filter(([, value]) => value !== '' && value != null)
@@ -689,8 +712,8 @@ export default function App() {
                     <Building2 size={18} />
                   </span>
                   <div>
-                    <strong>Mulai dari satu pelanggan</strong>
-                    <p>Klik node akun untuk menjelajahi konteks dan analisisnya.</p>
+                    <strong>{t('Mulai dari satu pelanggan')}</strong>
+                    <p>{t('Klik node akun untuk menjelajahi konteks dan analisisnya.')}</p>
                   </div>
                 </div>
               )}
@@ -703,7 +726,7 @@ export default function App() {
                 ).map((kind) => (
                   <span key={kind}>
                     <i style={{ background: colors[kind] }} />
-                    {names[kind]}
+                    {tx(names[kind])}
                   </span>
                 ))}
               </div>
@@ -720,7 +743,7 @@ export default function App() {
               exiting={panelPresence.exiting}
               account={account}
               context={context}
-              contextError={contextError}
+              contextError={tx(contextError)}
               jevConfigured={jev}
               onClose={() => {
                 setPanel(false);

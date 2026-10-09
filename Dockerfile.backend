@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --create-home evaly
 COPY backend ./backend
+COPY locales ./locales
 COPY migrations ./migrations
 COPY alembic.ini ./
 COPY data ./data

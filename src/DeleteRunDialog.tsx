@@ -1,3 +1,4 @@
+import { t, presentText as tx, useLanguage } from './i18n';
 import { useEffect, useRef } from 'react';
 import { dateTime, statusLabels, type History } from './types';
 
@@ -16,6 +17,7 @@ export default function DeleteRunDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  useLanguage();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (target) ref.current?.showModal();
@@ -31,7 +33,7 @@ export default function DeleteRunDialog({
         if (!busy) onCancel();
       }}
     >
-      <h3 id="delete-title">Hapus hasil analisis?</h3>
+      <h3 id="delete-title">{t('Hapus hasil analisis?')}</h3>
       {target && (
         <>
           <p>{account}</p>
@@ -40,18 +42,22 @@ export default function DeleteRunDialog({
           </p>
         </>
       )}
-      <p>Hasil dan log evaluasi lokal ini akan dihapus permanen. Dataset sumber tetap tersedia.</p>
+      <p>
+        {t(
+          'Hasil dan log evaluasi lokal ini akan dihapus permanen. Dataset sumber tetap tersedia.',
+        )}
+      </p>
       {error && (
         <p className="delete-error" role="alert">
-          {error}
+          {tx(error)}
         </p>
       )}
       <div className="delete-actions">
         <button autoFocus disabled={busy} onClick={onCancel}>
-          Batal
+          {t('Batal') + ' '}
         </button>
         <button className="danger" disabled={busy} onClick={onConfirm}>
-          {busy ? 'Menghapus…' : 'Hapus permanen'}
+          {busy ? t('Menghapus…') : t('Hapus permanen')}
         </button>
       </div>
     </dialog>

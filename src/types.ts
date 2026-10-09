@@ -1,3 +1,4 @@
+import { getLanguage, withLanguage, locale, tx, t } from './i18n';
 // Source records differ by entity; the API envelopes remain explicitly typed.
 export type RecordData = Record<string, any>;
 export type Evidence = {
@@ -142,7 +143,7 @@ export type ExpansionScore = {
   }[];
 };
 export const scorePercent = (value: number) =>
-  `${new Intl.NumberFormat('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
+  `${new Intl.NumberFormat(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value)}%`;
 export type Run = {
   rubric?: Record<string, RubricEvaluation>;
   review_reasons?: ReviewReason[];
@@ -186,29 +187,33 @@ export type History = Pick<
 >;
 
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, options);
+  const response = await fetch(withLanguage(`/api${path}`, getLanguage()), options);
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || `Server tidak tersedia (HTTP ${response.status})`);
+    throw new Error(
+      typeof error.detail === 'string'
+        ? tx(error.detail)
+        : t('Server tidak tersedia (HTTP {0})', [response.status]),
+    );
   }
   if (response.status === 204) return undefined as T;
   return response.json();
 }
 export const money = (value: number | null | undefined) =>
   value == null
-    ? 'Belum dihitung'
-    : new Intl.NumberFormat('id-ID', {
+    ? t('Belum dihitung')
+    : new Intl.NumberFormat(locale(), {
         style: 'currency',
         currency: 'IDR',
         maximumFractionDigits: 0,
       }).format(value);
 export const dateTime = (value: string) =>
-  new Intl.DateTimeFormat('id-ID', {
+  new Intl.DateTimeFormat(locale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Asia/Bangkok',
   }).format(new Date(value));
-export const statusLabels: Record<RunStatus, string> = {
+const statusNames: Record<RunStatus, string> = {
   waiting: 'Menunggu',
   running: 'Berjalan',
   done: 'Selesai',
@@ -216,3 +221,7 @@ export const statusLabels: Record<RunStatus, string> = {
   failed: 'Gagal',
   skipped: 'Dilewati',
 };
+
+export const statusLabels = new Proxy(statusNames, {
+  get: (target, key: RunStatus) => tx(target[key]),
+});

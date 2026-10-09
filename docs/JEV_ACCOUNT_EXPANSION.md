@@ -1,10 +1,10 @@
 # Jev untuk Dashboard Account Expansion
 
-Dokumen ini menyimpan hasil pembelajaran dokumentasi TypeSafe dan rancangan penggunaan Jev untuk hackathon KasirNusa, tim 5: Account Expansion.
+Dokumen ini menjelaskan penggunaan Jev pada dashboard Account Expansion v2.0 untuk hackathon KasirNusa, tim 5, serta konteks rancangan awal integrasinya.
 
 Tanggal kajian dokumentasi: 9 Oktober 2026. Snapshot dataset bisnis tetap 1 Oktober 2026.
 
-**Status: rancangan integrasi. Belum ada panggilan API Jev atau hasil evaluasi model yang dijalankan sebagai bagian penyusunan dokumen ini.** Contoh penilaian di bawah merupakan pertanyaan yang diusulkan, bukan hasil model.
+**Status: panduan implementasi saat ini.** Contoh C02/C06 adalah ilustrasi bukti dan perhitungan dari dataset, bukan keluaran API Jev. Dokumen ini tidak mengklaim akurasi model berdasarkan pengujian respons terkontrol.
 
 Implementasi dashboard tersedia pada root repositori; baca [panduan dashboard](../README.md) dan [instruksi implementasi](../AGENTS.md). Integrasi memakai API asli dan riwayat MySQL; respons terkontrol hanya dipakai dalam pengujian. Pengujian aplikasi tidak membuktikan akurasi model asli pada dataset.
 
@@ -47,7 +47,7 @@ Kode: hitung nilai, terapkan aturan bisnis, susun prioritas
 Dashboard: peluang, nilai, hasil penilaian, bukti, tindakan
 ```
 
-Pembagian tanggung jawab yang diusulkan:
+Pembagian tanggung jawab aplikasi:
 
 - **Pengolahan data:** membaca seluruh dataset, memvalidasi ID, menangani duplikasi dan nilai kosong.
 - **Context graph:** menghubungkan akun, kontak, interaksi, kontrak, usage, tiket, fitur, dan keputusan; mengambil jalur bukti yang relevan.
@@ -59,9 +59,23 @@ State dapat berupa teks atau JSON terstruktur. Gunakan field yang jelas serta ID
 
 Sumber: [State](https://docs.typesafe.ai/concepts/state), [Batasan Jev 1.13](https://docs.typesafe.ai/model-jaggedness/jev-1.13).
 
-## Penggunaan Jev untuk kasus ini
+## Evaluasi Account Expansion v2.0
 
-Tabel berikut adalah rancangan pertanyaan, bukan keluaran API.
+Sumber definisi yang dipakai backend dan dashboard adalah `backend/rubric.py`, versi `expansion-v2.0`. Seluruh 19 pertanyaan dan tipe tercantum pada [rubrik evaluasi](../RUBRIK_EVALUASI.md).
+
+| Kelompok | Parameter     | Tujuan                                                            | Bobot skor |
+| -------- | ------------- | ----------------------------------------------------------------- | ---------- |
+| OI       | OI-1–OI-4 (4) | Sinyal, jenis, kekuatan bukti niat, dan rincian ekspansi          | 30%        |
+| EP       | EP-1–EP-5 (5) | Keterlacakan, jenis, kekuatan, relasi, dan dukungan lintas sumber | 30%        |
+| FE       | FE-1–FE-3 (3) | Kecukupan input dan verifikasi estimasi nilai                     | 15%        |
+| BR       | BR-1–BR-4 (4) | Hambatan, kesiapan, dan kebutuhan konfirmasi                      | 20%        |
+| PC       | PC-1–PC-3 (3) | Relasi pipeline dan dasar tindak lanjut                           | 5%         |
+
+Urutan eksekusi: konteks → OI → FE → BR → PC → EP → hasil. Klasifikasi pesan, pemilihan kandidat angka outlet, dan pilihan tindakan merupakan pemeriksaan pendukung workflow, bukan tambahan parameter rubrik. Hasil akhir memakai validasi kode `validation-v1.0` dan agregasi deterministik `expansion-score-v1.0`, tanpa panggilan model tambahan untuk menulis kesimpulan. OI-3 tetap tersedia dalam detail dan menyumbang skor, tetapi label/confidence niat bukan ringkasan keseluruhan.
+
+## Konteks rancangan awal (historis)
+
+Tabel berikut menyimpan rancangan awal sebelum 19 parameter v2.0 diterapkan; ini bukan kontrak pertanyaan saat ini atau keluaran API.
 
 | Tahap             | Contoh pertanyaan spesifik                                                                                                                           | Primitive | Manfaat di dashboard                     |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------- |
@@ -72,7 +86,7 @@ Tabel berikut adalah rancangan pertanyaan, bukan keluaran API.
 
 Sediakan opsi tidak jelas/informasi belum cukup pada Choice yang relevan. Untuk Score, tetapkan tingkatan satu dimensi dan gunakan pemeriksaan kecukupan bukti terpisah agar data kosong tidak dianggap niat rendah.
 
-Deteksi ekspansi dilakukan melalui klasifikasi Choice, kemudian tingkat niat Score. Tidak ada pertanyaan Noul pendeteksi niat tambahan agar sinyal yang sama tidak dihitung ulang. Noul tetap digunakan untuk pemeriksaan syarat dalam tiket.
+Pada implementasi v2.0, klasifikasi pesan memberi konteks bagi OI-1 (Noul adanya sinyal), OI-2 (Choice jenis), dan OI-3 (Score kekuatan bukti niat). Noul juga dipakai pada bukti, estimasi, hambatan, dan pipeline. Jangan menggunakan rancangan historis ini untuk menghapus atau menambah pertanyaan rubrik.
 
 Jangan meminta satu pertanyaan besar seperti "analisis seluruh akun dan tentukan strategi terbaik". Nilai niat, hambatan, dan kesiapan secara terpisah. Jika memakai skor prioritas gabungan, tetapkan bobot di kode, jelaskan alasannya, dan uji terhadap contoh berlabel.
 
@@ -118,25 +132,27 @@ Referensi lokal: `data/dataset_kasirnusa/interactions.jsonl`, `contracts_billing
 - Jangan menganggap transaksi server turun sebagai penurunan aktivitas bisnis tanpa memeriksa sinkronisasi. Jangan menjumlahkan transaksi offline dan server tanpa memastikan definisinya tidak tumpang tindih.
 - Usage mendukung penilaian kesiapan/risiko; niat ekspansi terutama ditelusuri dari interaksi dan bukti komersial. Estimasi rupiah berasal dari outlet tambahan dan ketentuan kontrak.
 
-## Rancangan dashboard hackathon
+## Tampilan dashboard saat ini
 
-| Bagian           | Isi                                                                                       |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| Ringkasan        | Jumlah peluang existing, tambahan outlet, potensi bruto/neto, asumsi                      |
-| Daftar peluang   | Akun, kategori, kekuatan niat, nilai, hambatan, owner, tindakan berikutnya                |
-| Detail akun      | Timeline interaksi, kontrak, stakeholder, usage, tiket, fitur, keputusan                  |
-| Graph bukti      | Jalur dari akun ke sumber yang mendukung rekomendasi                                      |
-| Panel Jev        | Pertanyaan, hasil, confidence jika tersedia, versi model, tanggal evaluasi                |
-| Pipeline terkait | Deal baru dan hubungan lintas akun yang terbukti; nilai dipisahkan dari ekspansi existing |
+| Bagian           | Isi                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| Ringkasan        | Status validasi, jenis sinyal, skor dukungan ekspansi, estimasi, keterbatasan, dan tindakan     |
+| Report           | Hasil lintas akun, pencarian akun, filter status, pagination, dan PDF pilihan maksimal 50 hasil |
+| Detail akun      | Timeline interaksi, kontrak, stakeholder, usage, tiket, fitur, keputusan                        |
+| Graph bukti      | Jalur dari akun ke sumber yang mendukung rekomendasi                                            |
+| Panel Jev        | Pertanyaan, hasil, confidence jika tersedia, versi model, tanggal evaluasi                      |
+| Pipeline terkait | Deal baru dan hubungan lintas akun yang terbukti; nilai dipisahkan dari ekspansi existing       |
 
-Gunakan template berbasis bukti untuk narasi dashboard, atau model generatif terpisah jika diperlukan. Jev berfokus pada keputusan terstruktur, sehingga narasi panjang dan jawaban bebas perlu komponen lain. Jangan menampilkan alasan atau kutipan seolah-olah dikembalikan Jev jika API hanya mengembalikan nilai terstruktur.
+Narasi kesimpulan, alasan review, dan tindak lanjut disusun dengan template kode dari jawaban serta pemeriksaan tersimpan. Tidak ada model generatif tambahan. Jangan menampilkan alasan atau kutipan seolah-olah merupakan penalaran internal Jev.
+
+Navigasi utama terdiri dari **Graph** dan **Report**. Graph menyediakan pencarian semua node; panel akun memuat **Workflow analisis**, **Data & bukti**, serta **Hasil analisis**. Tombol **Lihat penjelasan hasil** membuka detail validasi, langkah berikutnya, dan **Bagaimana skor dihitung** beserta kontribusi 19 parameter serta sumbernya. Ekspor per hasil tersedia sebagai Markdown, CSV, dan PDF; Report juga mendukung PDF beberapa hasil. Membuka panel atau replay tidak memanggil Jev.
 
 Sumber: [Batasan Jev 1.13](https://docs.typesafe.ai/model-jaggedness/jev-1.13).
 
 ## Confidence, keterlacakan, dan evaluasi
 
 - Confidence Choice/Score dihitung dari distribusi jawaban. Confidence bukan probabilitas deal menang dan bukan jaminan jawaban benar. Noul tidak memiliki field confidence terpisah.
-- Tentukan threshold setelah menguji contoh berlabel; hasil ambigu dapat ditandai perlu ditinjau. Jangan menganggap threshold contoh sebagai aturan universal.
+- Aturan aplikasi: Noul ≤40% tidak mendukung pernyataan parameter, >40% dan <60% ambigu (review), ≥60% mendukung. Choice/Score dengan confidence <60%, probabilitas tertinggi seri, atau kategori unclear memicu review. Batas ini belum dikalibrasi terhadap akurasi atau hasil deal; bukan aturan universal.
 - Simpan ID sumber, versi pertanyaan/rubrik, model aktual yang digunakan, waktu evaluasi, dan respons API. Ini memungkinkan penelusuran dan perbandingan hasil.
 - Uji pesan berbahasa Indonesia dari dataset. Dokumentasi menyatakan bahasa pelatihan utama Jev adalah Inggris dan akurasi bahasa lain lebih rendah; ukur pada contoh kasus ini sebelum mengandalkan hasilnya.
 - Bedakan status belum dievaluasi, berhasil, tidak cukup bukti, dan API gagal. Jangan mengganti kegagalan API dengan hasil contoh yang tampak nyata.
@@ -144,15 +160,23 @@ Sumber: [Batasan Jev 1.13](https://docs.typesafe.ai/model-jaggedness/jev-1.13).
 
 Sumber: [Confidence](https://docs.typesafe.ai/confidence), [State](https://docs.typesafe.ai/concepts/state).
 
-## Catatan implementasi mendatang
+## Integrasi yang digunakan
 
 Dashboard memakai endpoint `POST https://openrouter.ai/api/v1/systemone`, autentikasi Bearer dengan `OPENROUTER_API_KEY`, dan `OPENROUTER_MODEL` default `~typesafe/jev-latest`. Format state/questions/answers tetap mengikuti System One. Model aktual dari respons dicatat agar hasil dapat ditelusuri. Dokumentasi TypeSafe menjadi referensi konsep dan rubrik; konfigurasi dashboard mengikuti OpenRouter.
 
-Panggil API melalui backend. Simpan API key di konfigurasi lingkungan server, jangan di frontend, dataset, atau dokumentasi. Persiapkan penanganan timeout/error dan cache hasil untuk demo. Detail framework/dashboard belum diputuskan oleh dokumen ini.
+API dipanggil melalui backend FastAPI; frontend menggunakan React, TypeScript, Vite, dan React Flow. API key disimpan pada environment backend. Respons, model aktual, provenance, dan hasil disimpan di MySQL; kegagalan ditampilkan tanpa simulasi. Lihat [README](../README.md) dan [deployment](../DEPLOYMENT.md) untuk setup, timeout, dan pengujian.
 
 Sumber: [Quick start](https://docs.typesafe.ai/introduction/quickstart).
 
 Nilai yang ingin ditunjukkan kepada juri: context graph menghubungkan bukti, Jev mengubah teks menjadi penilaian terstruktur, kode menghitung dampak bisnis, dan dashboard memperlihatkan jalur dari sumber ke rekomendasi.
+
+## Kesimpulan, skor, dan replay
+
+**Selesai** berarti evaluasi berakhir tanpa pemicu review, bukan seluruh jawaban positif atau transaksi pasti berhasil. **Perlu ditinjau** mempertahankan judul **Hasil perlu ditinjau** dan **Usulan setelah verifikasi**, meskipun skor tinggi. Satu sumber langsung boleh selesai dengan catatan; EP-5 negatif tidak otomatis membatalkan sinyal. Klaim lintas sumber yang bertentangan dengan provenance memicu review. Record dievaluasi, record pendukung, dan jumlah sumber berbeda dipisahkan; beberapa record dari berkas sama tetap satu sumber.
+
+Skor dukungan ekspansi memakai semua parameter yang berlaku dengan bobot OI/EP/FE/BR/PC sebesar 30/30/15/20/5, dibatasi OI-1, EP-1, dan EP-4. BR-1/BR-4 dibalik sesuai makna risiko. Pipeline netral hanya bila pemeriksaan jawaban dan kandidat jalurnya memenuhi syarat; bobot PC 5 dikeluarkan sehingga pembagi menjadi `30 + 30 + 15 + 20 = 95`. Lihat [rumus lengkap](EXPANSION_SCORE.md) untuk pemetaan, pembatas satu sumber, dan kelengkapan.
+
+`result.validation_summary` dan `result.expansion_score` dipakai bersama oleh panel, Report, serta ekspor. Replay v2 menurunkan keduanya dari jawaban dan snapshot tersimpan tanpa panggilan model atau penulisan ulang history. Riwayat yang tidak lengkap menampilkan keterbatasan dan tidak memperoleh skor pengganti. Riwayat versi lama tetap ditampilkan dengan keterbatasannya.
 
 ## Dashboard: OpenRouter dan highlight sumber
 
