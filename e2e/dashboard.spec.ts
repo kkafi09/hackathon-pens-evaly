@@ -1,8 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
 
 async function openAccount(page: Page, id = 'C02') {
-  await page.getByRole('textbox', { name: 'Cari akun' }).fill(id);
-  await page.locator('.search-results').getByRole('button').first().click();
+  await page.getByRole('combobox', { name: 'Cari semua node' }).fill(id);
+  await page.locator('.search-results').getByRole('option').first().click();
   const node = page.getByTestId(`entity-${id}`);
   await expect(node).toBeVisible();
   // Fit the focused graph before clicking the node at its actual zoomed position.
@@ -162,8 +162,8 @@ test('completed analysis displays values, evidence and exports', async ({ page }
 
 test('prospects are disabled and search filters accounts', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('textbox', { name: 'Cari akun' }).fill('P01');
-  await page.locator('.search-results').getByRole('button').first().click();
+  await page.getByRole('combobox', { name: 'Cari semua node' }).fill('P01');
+  await page.locator('.search-results').getByRole('option').first().click();
   await page.getByRole('button', { name: 'Sesuaikan tampilan' }).click();
   await page.waitForTimeout(600);
   await page.getByTestId('entity-P01').click();
@@ -228,8 +228,8 @@ test('failed API is visible and real stored responses can be replayed', async ({
 test('mobile workflow is usable without overflowing viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('textbox', { name: 'Cari akun' }).fill('C06');
-  await page.locator('.search-results').getByRole('button').first().click();
+  await page.getByRole('combobox', { name: 'Cari semua node' }).fill('C06');
+  await page.locator('.search-results').getByRole('option').first().click();
   await page.getByRole('button', { name: 'Sesuaikan tampilan' }).click();
   await page.waitForTimeout(600);
   await page.getByTestId('entity-C06').click();

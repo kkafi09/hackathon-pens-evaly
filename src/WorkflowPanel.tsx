@@ -68,8 +68,12 @@ export default function WorkflowPanel({
   onEvidence,
   onEvidenceSet,
   onFocusEvidence,
+  initialRunId = null,
+  onRunChange,
   exiting = false,
 }: {
+  initialRunId?: string | null;
+  onRunChange?: (id: string | null) => void;
   exiting?: boolean;
   account: GraphItem;
   context: Context | null;
@@ -100,6 +104,9 @@ export default function WorkflowPanel({
   const running = run?.status === 'running' || run?.status === 'waiting';
   const runId = run?.id;
   useEffect(() => {
+    onRunChange?.(runId || null);
+  }, [runId, onRunChange]);
+  useEffect(() => {
     document
       .querySelector<HTMLElement>('.workflow-panel .close-icon')
       ?.focus({ preventScroll: true });
@@ -124,6 +131,23 @@ export default function WorkflowPanel({
       live = false;
     };
   }, [account.id]);
+  useEffect(() => {
+    if (!initialRunId) return;
+    let live = true;
+    api<Run>(`/expansion-runs/${initialRunId}`)
+      .then((next) => {
+        if (!live) return;
+        setRun(next);
+        setReplay(!['running', 'waiting'].includes(next.status));
+        setTab(next.result ? 'results' : 'workflow');
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
+    return () => {
+      live = false;
+    };
+  }, [initialRunId]);
   useEffect(() => {
     if (!running || replay || !runId) return;
     let live = true;

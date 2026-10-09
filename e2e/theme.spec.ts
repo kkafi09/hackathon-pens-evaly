@@ -44,8 +44,8 @@ test('logo and light/dark themes follow the system and persist explicit choices'
   expect(await page.evaluate(() => localStorage.getItem('kasirnusa-theme'))).toBe('light');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await page.getByRole('textbox', { name: 'Cari akun' }).fill('C02');
-  await page.locator('.search-results').getByRole('button').first().click();
+  await page.getByRole('combobox', { name: 'Cari semua node' }).fill('C02');
+  await page.locator('.search-results').getByRole('option').first().click();
   await page.getByRole('button', { name: 'Sesuaikan tampilan' }).click();
   await page.waitForTimeout(600);
   await page.getByTestId('entity-C02').click();

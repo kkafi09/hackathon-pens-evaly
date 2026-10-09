@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from pydantic import BaseModel, Field
+from typing import Literal
 from fastapi.responses import Response
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -123,6 +125,12 @@ def graph(account_id: str | None = None):
     return dataset().graph(account_id)
 
 
+@app.get('/api/graph/search')
+def graph_search(q: str = Query('', max_length=300), limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0)):
+    from .search import search
+    return search(dataset(), q, limit, offset)
+
+
 @app.get('/api/expansion-rubric')
 def expansion_rubric():
     return rubric_definition()
@@ -158,6 +166,30 @@ def status(rid: str):
     return get_run(rid)
 
 
+@app.get('/api/expansion-runs')
+def reports(q: str = Query('', max_length=300), status: Literal['waiting', 'running', 'done', 'review', 'failed'] | None = None,
+            limit: int = Query(25, ge=1, le=100), offset: int = Query(0, ge=0)):
+    return store().reports(q, status, limit, offset)
+
+
+class PDFSelection(BaseModel):
+    run_ids: list[str] = Field(min_length=1, max_length=50)
+
+
+def pdf_response(selected, filename):
+    if any(run['status'] not in ('done', 'review', 'failed') for run in selected):
+        raise HTTPException(409, 'Analisis yang masih aktif belum dapat diunduh. Perbarui pilihan laporan.')
+    from .pdf_reports import render
+    return Response(render(selected), media_type='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename="{filename}.pdf"'})
+
+
+@app.post('/api/expansion-runs/export/pdf')
+def pdf_batch(selection: PDFSelection):
+    selected = [get_run(rid) for rid in dict.fromkeys(selection.run_ids)]
+    return pdf_response(selected, 'evaly-reports')
+
+
 @app.delete('/api/expansion-runs/{rid}', status_code=204)
 def delete_run(rid: str):
     outcome = store().delete(rid)
@@ -171,6 +203,8 @@ def delete_run(rid: str):
 @app.get('/api/expansion-runs/{rid}/export/{format}')
 def export(rid: str, format: str):
     run = get_run(rid)
+    if format == 'pdf':
+        return pdf_response([run], f'evaly-{run["account_id"]}-{run["id"]}')
     result = run.get('result')
     if not result:
         raise HTTPException(409, 'Analisis belum memiliki hasil akhir')

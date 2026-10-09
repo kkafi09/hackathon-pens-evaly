@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from sqlalchemy.dialects.mysql import insert
 from .database import engine, runs
 
@@ -149,6 +149,26 @@ class RunStore:
                'steps': [{'id': key, 'title': title, 'primitive': primitive, 'status': 'waiting', 'data': None} for key, title, primitive in STEPS]}
         self.save(run)
         return run
+
+    def reports(self, query='', status=None, limit=25, offset=0):
+        conditions = []
+        if query.strip():
+            conditions.append(or_(runs.c.account_id.contains(query.strip(), autoescape=True),
+                runs.c.payload['account_name'].as_string().contains(query.strip(), autoescape=True)))
+        if status:
+            conditions.append(runs.c.status == status)
+        with self.db.connect() as connection:
+            total = connection.execute(select(func.count()).select_from(runs).where(*conditions)).scalar()
+            rows = connection.execute(select(runs.c.payload).where(*conditions)
+                .order_by(runs.c.created_at.desc(), runs.c.id.desc()).limit(limit).offset(offset)).scalars().all()
+        items = []
+        for row in rows:
+            result = row.get('result') or {}
+            items.append({**{key: row.get(key) for key in ('id', 'account_id', 'account_name', 'created_at', 'status', 'model', 'dataset_hash', 'rubric_version')},
+                'gateway': gateway(row), 'title': result.get('title'), 'intent_label': result.get('intent_label'),
+                'net_annual_scenario': (result.get('calculation') or {}).get('net_annual_scenario'),
+                'action_label': result.get('action_label')})
+        return {'items': items, 'total': total, 'limit': limit, 'offset': offset}
 
 
 def number_candidates(messages):

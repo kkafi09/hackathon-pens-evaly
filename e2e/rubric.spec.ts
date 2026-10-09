@@ -17,8 +17,8 @@ async function open(page: Page, controlled = fixture) {
     route.fulfill({ json: controlled }),
   );
   await page.goto('/');
-  await page.getByRole('textbox', { name: 'Cari akun' }).fill('C02');
-  await page.locator('.search-results').getByRole('button').first().click();
+  await page.getByRole('combobox', { name: 'Cari semua node' }).fill('C02');
+  await page.locator('.search-results').getByRole('option').first().click();
   await page.getByRole('button', { name: 'Sesuaikan tampilan' }).click();
   await page.waitForTimeout(400);
   await page.getByTestId('entity-C02').click();

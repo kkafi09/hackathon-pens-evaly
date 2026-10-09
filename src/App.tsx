@@ -5,7 +5,6 @@ import {
   Controls,
   Handle,
   MarkerType,
-  MiniMap,
   Position,
   ReactFlow,
   useReactFlow,
@@ -16,7 +15,6 @@ import {
   Activity,
   ArrowLeft,
   ArrowRight,
-  ArrowUpRight,
   Building2,
   ChevronDown,
   Crosshair,
@@ -29,13 +27,15 @@ import {
   Network,
   Moon,
   Sun,
-  Search,
   Ticket,
   Users,
   X,
 } from 'lucide-react';
-import { api, money, type Context, type Evidence, type GraphData, type GraphItem } from './types';
+import { api, type Context, type Evidence, type GraphData, type GraphItem } from './types';
 import WorkflowPanel from './WorkflowPanel';
+import GlobalSearch, { type SearchHit } from './GlobalSearch';
+import ReportPage from './ReportPage';
+import PanelDivider from './PanelDivider';
 import { useTheme } from './theme';
 import { usePresence, useReducedMotion } from './motion';
 const colors: Record<string, string> = {
@@ -188,7 +188,14 @@ export default function App() {
   const [panel, setPanel] = useState(false);
   const [menu, setMenu] = useState<{ entity: GraphItem; x: number; y: number } | null>(null);
   const [inspected, setInspected] = useState<GraphItem | null>(null);
-  const [search, setSearch] = useState('');
+  const [page, setPage] = useState<'graph' | 'report'>('graph');
+  const [reportRunId, setReportRunId] = useState<string | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [ratio, setRatio] = useState(() => {
+    const value = Number(localStorage.getItem('evaly-panel-ratio'));
+    return value > 0 && value <= 60 ? value : 100 / 3;
+  });
+  const searchTarget = useRef<SearchHit | null>(null);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [highlight, setHighlight] = useState('');
@@ -280,11 +287,7 @@ export default function App() {
     const nodes: EntityNode[] = graph.nodes
       .filter((n) => {
         if (focused && detail) return true;
-        return (
-          n.kind !== 'account' ||
-          ((filter === 'all' || n.record.tipe === filter) &&
-            (!search || `${n.id} ${n.label}`.toLowerCase().includes(search.toLowerCase())))
-        );
+        return n.kind !== 'account' || filter === 'all' || n.record.tipe === filter;
       })
       .map((n) => ({
         id: n.id,
@@ -329,20 +332,14 @@ export default function App() {
         },
       }));
     return { nodes, edges };
-  }, [graph, focused, detail, filter, search, highlight, proof]);
+  }, [graph, focused, detail, filter, highlight, proof]);
   useEffect(() => {
     const timer = setTimeout(() => {
-      flow.fitView({ padding: 0.15, duration: cameraDuration, maxZoom: focused ? 0.9 : 0.55 });
+      if (!searchTarget.current)
+        flow.fitView({ padding: 0.15, duration: cameraDuration, maxZoom: focused ? 0.9 : 0.55 });
     }, 130);
     return () => clearTimeout(timer);
-  }, [base, loaded, focused, filter, search, flow, cameraDuration]);
-  const choose = (id: string) => {
-    setPanel(false);
-    setInspected(null);
-    setHighlight('');
-    selectAccount(id || null);
-    setMenu(null);
-  };
+  }, [base, loaded, focused, filter, flow, cameraDuration]);
   const showEvidence = useCallback(
     (id: string) => {
       setHighlight(id);
@@ -370,13 +367,24 @@ export default function App() {
     [detail, focused, flow, proof, cameraDuration],
   );
   const account = base?.nodes.find((n) => n.id === focused);
-  const searchHits =
-    base?.nodes
-      .filter(
-        (n) =>
-          n.kind === 'account' && `${n.id} ${n.label}`.toLowerCase().includes(search.toLowerCase()),
-      )
-      .slice(0, 6) || [];
+  useEffect(() => {
+    const target = searchTarget.current;
+    if (!target || !detail) return;
+    const found = detail.nodes.find((node) => node.id === target.id);
+    if (!found) return;
+    setTimeout(() => {
+      if (searchTarget.current !== target) return;
+      setInspected(found);
+      setHighlight(found.id);
+      flow.fitView({
+        nodes: [{ id: found.id }],
+        duration: cameraDuration,
+        padding: 0.5,
+        maxZoom: 1,
+      });
+      searchTarget.current = null;
+    }, 150);
+  }, [detail, loaded, flow, cameraDuration]);
   return (
     <div className={`app ${panelPresence.value ? 'panel-open' : ''}`}>
       <div className="workspace">
@@ -393,6 +401,24 @@ export default function App() {
             <span>Intelligence workspace</span>
           </div>
           <div className="header-right">
+            <nav aria-label="Navigasi utama" className="main-nav">
+              <button
+                aria-current={page === 'graph' ? 'page' : undefined}
+                onClick={() => setPage('graph')}
+              >
+                Graph
+              </button>
+              <button
+                aria-current={page === 'report' ? 'page' : undefined}
+                onClick={() => {
+                  setPage('report');
+                  setMenu(null);
+                  setInspected(null);
+                }}
+              >
+                Report
+              </button>
+            </nav>
             <button
               type="button"
               className="theme-toggle inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink shadow-sm transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-brand"
@@ -403,38 +429,33 @@ export default function App() {
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
               <span className="hidden sm:inline">{theme === 'dark' ? 'Terang' : 'Gelap'}</span>
             </button>
-            <span className="avatar small">EV</span>
           </div>
         </header>
-        <section className="page-heading">
-          <div>
-            <div className="eyebrow">
-              CUSTOMER INTELLIGENCE <span>/</span> CONTEXT GRAPH
-            </div>
-            <h1>
-              Setiap koneksi, sebuah peluang<span>.</span>
-            </h1>
-            <p>Jelajahi hubungan pelanggan. Temukan konteks di balik pertumbuhan.</p>
-          </div>
-        </section>
-        <div className="metrics">
-          <Metric icon={Building2} value={base?.counts.customers ?? '—'} label="Pelanggan aktif" />
-          <Metric icon={Crosshair} value={base?.counts.prospects ?? '—'} label="Prospek" />
-          <Metric icon={Layers} value={base?.counts.outlets ?? '—'} label="Outlet terhubung" />
-          <div className="metric pipeline">
-            <span className="metric-icon">
-              <GitBranch size={18} />
-            </span>
-            <div>
-              <strong>
-                {base ? money(base.pipeline_value) : '—'}
-                <small>/ tahun</small>
-              </strong>
-              <span>Pipeline pelanggan baru · terpisah dari ekspansi</span>
-            </div>
-          </div>
-        </div>
-        <main className="main-area">
+        {page === 'report' && (
+          <ReportPage
+            onOpen={(row) => {
+              setPage('graph');
+              selectAccount(row.account_id);
+              setReportRunId(row.id);
+              setPanel(true);
+              setProof([]);
+              setHighlight('');
+            }}
+            onDeleted={(id) => {
+              if (reportRunId === id || activeRunId === id) {
+                setReportRunId(null);
+                setPanel(false);
+                setProof([]);
+                setHighlight('');
+              }
+            }}
+          />
+        )}
+        <main
+          className="main-area full-canvas"
+          hidden={page !== 'graph'}
+          style={{ '--panel-ratio': `${ratio}%` } as React.CSSProperties}
+        >
           <section className="graph-card" aria-label="Context graph pelanggan">
             <div className="graph-toolbar">
               <div className="graph-title">
@@ -443,6 +464,19 @@ export default function App() {
                 <span className="count-pill">{graph?.nodes.length ?? 0} node</span>
               </div>
               <div className="toolbar-actions">
+                {panelPresence.value && (
+                  <button
+                    className="reset-panel"
+                    aria-label="Reset lebar sidebar"
+                    title="Kembali ke rasio graph 8 : sidebar 4"
+                    onClick={() => {
+                      setRatio(100 / 3);
+                      localStorage.setItem('evaly-panel-ratio', String(100 / 3));
+                    }}
+                  >
+                    8:4
+                  </button>
+                )}
                 {focused && (
                   <button
                     onClick={() => {
@@ -457,40 +491,41 @@ export default function App() {
                 <button
                   title="Sesuaikan tampilan"
                   aria-label="Sesuaikan tampilan"
-                  onClick={() => flow.fitView({ padding: 0.15, duration: cameraDuration })}
+                  onClick={() => {
+                    searchTarget.current = null;
+                    setInspected(null);
+                    flow.fitView({ padding: 0.15, duration: cameraDuration });
+                  }}
                 >
                   <Crosshair size={16} />
                 </button>
               </div>
             </div>
             <div className="graph-filters">
-              <div className="search">
-                <Search size={15} />
-                <input
-                  aria-label="Cari akun"
-                  placeholder="Cari nama atau ID akun…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                {search && (
-                  <div className="search-results">
-                    {searchHits.map((n) => (
-                      <button
-                        key={n.id}
-                        onClick={() => {
-                          choose(n.id);
-                          setSearch('');
-                        }}
-                      >
-                        <span>{n.id}</span>
-                        {n.label}
-                        <ArrowUpRight size={14} />
-                      </button>
-                    ))}
-                    {!searchHits.length && <p>Akun tidak ditemukan</p>}
-                  </div>
-                )}
-              </div>
+              <GlobalSearch
+                onSelect={(hit, aid) => {
+                  if (!aid) return;
+                  searchTarget.current = hit;
+                  setPanel(false);
+                  setReportRunId(null);
+                  setMenu(null);
+                  setFilter('all');
+                  if (aid === focused && detail) {
+                    const found = detail.nodes.find((node) => node.id === hit.id);
+                    if (found) {
+                      setInspected(found);
+                      setHighlight(hit.id);
+                      flow.fitView({
+                        nodes: [{ id: hit.id }],
+                        duration: cameraDuration,
+                        padding: 0.5,
+                        maxZoom: 1,
+                      });
+                      searchTarget.current = null;
+                    }
+                  } else selectAccount(aid);
+                }}
+              />
               <label className="filter-select">
                 <select
                   aria-label="Filter tipe akun"
@@ -549,13 +584,6 @@ export default function App() {
                   variant={BackgroundVariant.Dots}
                 />
                 <Controls showInteractive={false} position="bottom-right" />
-                <MiniMap
-                  position="bottom-right"
-                  nodeColor={(node) => colors[(node.data as EntityNode['data']).entity.kind]}
-                  maskColor="var(--graph-mask)"
-                  pannable
-                  zoomable
-                />
               </ReactFlow>
               {!base && !error && (
                 <div className="canvas-loading">
@@ -599,6 +627,7 @@ export default function App() {
                     className="expansion-option"
                     disabled={visibleMenu.entity.record.tipe !== 'pelanggan'}
                     onClick={() => {
+                      setReportRunId(null);
                       setPanel(true);
                       setMenu(null);
                     }}
@@ -676,8 +705,13 @@ export default function App() {
             </div>
           </section>
           {panelPresence.value && focused && account && (
+            <PanelDivider ratio={ratio} onChange={setRatio} />
+          )}
+          {panelPresence.value && focused && account && (
             <WorkflowPanel
-              key={focused}
+              key={`${focused}:${reportRunId || 'new'}`}
+              initialRunId={reportRunId}
+              onRunChange={setActiveRunId}
               exiting={panelPresence.exiting}
               account={account}
               context={context}
@@ -708,30 +742,6 @@ export default function App() {
             />
           )}
         </main>
-        <footer className="page-footer">
-          <span>Evaly Context Intelligence</span>
-        </footer>
-      </div>
-    </div>
-  );
-}
-function Metric({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: typeof Building2;
-  value: number | string;
-  label: string;
-}) {
-  return (
-    <div className="metric">
-      <span className="metric-icon">
-        <Icon size={18} />
-      </span>
-      <div>
-        <strong>{value}</strong>
-        <span>{label}</span>
       </div>
     </div>
   );
