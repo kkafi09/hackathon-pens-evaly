@@ -1,0 +1,95 @@
+name: Evaly CI and deployment
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: evaly_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    env:
+      DATABASE_URL: mysql+pymysql://root:test-only-password@127.0.0.1:3306/evaly_test?charset=utf8mb4
+      TEST_DATABASE_URL: mysql+pymysql://root:test-only-password@127.0.0.1:3306/evaly_test?charset=utf8mb4
+      OPENROUTER_API_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.txt
+          .venv/bin/python -m alembic upgrade head
+          .venv/bin/python -m backend.seed
+          .venv/bin/python -m pytest backend/tests -q
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run test:e2e
+
+  images:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [frontend, backend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.component }}
+          push: true
+          tags: |
+            kkafi09/evaly-${{ matrix.component }}:sha-${{ github.sha }}
+            kkafi09/evaly-${{ matrix.component }}:latest
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    env:
+      COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+      COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+      COOLIFY_BACKEND_UUID: ${{ vars.COOLIFY_BACKEND_UUID }}
+      COOLIFY_FRONTEND_UUID: ${{ vars.COOLIFY_FRONTEND_UUID }}
+      BACKEND_DOMAIN: https://api-evaly.kafi.gg
+      FRONTEND_DOMAIN: https://evaly.kafi.gg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'httpx>=0.28,<1'
+      - run: python deploy/coolify.py

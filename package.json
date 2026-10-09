@@ -1,0 +1,40 @@
+{
+  "name": "kasirnusa-context-graph",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "playwright test",
+    "lint": "oxlint src e2e vite.config.ts playwright.config.ts --deny-warnings",
+    "lint:fix": "oxlint src e2e vite.config.ts playwright.config.ts --fix",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "check": "bun run lint && bun run format:check && bun run build"
+  },
+  "dependencies": {
+    "@xyflow/react": "^12.10.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.4.0",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.8.0",
+    "vite": "^6.3.0"
+  },
+  "engines": {
+    "bun": ">=1.4.2",
+    "node": ">=22"
+  },
+  "packageManager": "bun@1.4.2"
+}
