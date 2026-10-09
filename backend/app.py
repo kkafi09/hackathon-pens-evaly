@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .analysis import Analyzer, RunStore
+from .rubric import definition as rubric_definition
 from .data import Dataset
 from .provenance import gateway
 from .explanations import explain_run
@@ -122,6 +123,11 @@ def graph(account_id: str | None = None):
     return dataset().graph(account_id)
 
 
+@app.get('/api/expansion-rubric')
+def expansion_rubric():
+    return rubric_definition()
+
+
 @app.get('/api/accounts/{aid}/context')
 def context(aid: str):
     account(aid)
@@ -171,11 +177,12 @@ def export(rid: str, format: str):
     calc = result['calculation']
     if format == 'csv':
         stream = io.StringIO(newline='')
-        writer = csv.DictWriter(stream, fieldnames=['account_id', 'name', 'has_opportunity', 'intent', 'additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario', 'action', 'owner', 'evidence_ids', 'assumptions', 'gateway', 'provenance', 'review_reasons', 'next_steps'])
+        writer = csv.DictWriter(stream, fieldnames=['account_id', 'name', 'has_opportunity', 'intent', 'additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario', 'action', 'owner', 'evidence_ids', 'assumptions', 'gateway', 'provenance', 'review_reasons', 'next_steps', 'rubric_version', 'rubric', 'evidence_paths'])
         writer.writeheader()
         writer.writerow({'account_id': run['account_id'], 'name': run['account_name'], 'has_opportunity': result['has_opportunity'],
                          'intent': result['intent_label'], **{k: calc[k] for k in ('additional_outlets', 'target_outlets', 'gross_annual', 'net_annual_scenario')},
                          'action': result['action_label'], 'owner': (result['owner'] or {}).get('nama'), 'evidence_ids': ';'.join(result['evidence_ids']),
+                         'rubric_version': run['rubric_version'], 'rubric': json.dumps(run.get('rubric', {}), ensure_ascii=False), 'evidence_paths': json.dumps(result.get('evidence_paths', []), ensure_ascii=False),
                          'review_reasons': json.dumps(run['review_reasons'], ensure_ascii=False), 'next_steps': json.dumps(run['next_steps'], ensure_ascii=False), 'assumptions': '; '.join(calc['assumptions']), 'gateway': gateway(run), 'provenance': json.dumps({'supporting': result.get('provenance', []), 'evaluated': result.get('evaluated_provenance', [])}, ensure_ascii=False)})
         content, media, suffix = '\ufeff'+stream.getvalue(), 'text/csv; charset=utf-8', 'csv'
     elif format == 'md':
@@ -185,6 +192,10 @@ def export(rid: str, format: str):
         content += '## Yang perlu ditinjau\n\n' + ('\n'.join('- '+x['message'] for x in run['review_reasons']) or 'Tidak ada pemicu review pada hasil ini.') + '\n\n'
         content += '## Langkah berikutnya\n\n' + '\n'.join(f"- {x['action']} | Owner: {x['owner']} | Konfirmasi: {'; '.join(x['confirmations'])} | Hasil yang diharapkan: {x['expected_outcome']}" for x in run['next_steps']) + '\n\n'
         content += '## Asumsi dan perhatian\n\n' + '\n'.join('- '+x for x in calc['assumptions']+result['concerns'])
+        if run.get('rubric'):
+            content += '\n\n## Evaluasi rubrik\n\n'
+            for key, entry in run['rubric'].items():
+                content += f"### {key}: {entry['text']}\n\n- Tipe: {entry['type']}\n- Status: {entry['status']}\n- Hasil: {entry.get('label', 'Belum dinilai')}\n- Catatan: {entry.get('note', '')}\n- Data yang dievaluasi: {'; '.join(entry['source_ids'])}\n- Jawaban asli: {json.dumps(entry['answer'], ensure_ascii=False)}\n- Pemeriksaan kode: {json.dumps(entry['checks'], ensure_ascii=False)}\n\n"
         content += '\n\n## Bukti\n\n' + '\n'.join(f"- {r['interaction_id']} | {r['tanggal']} | interactions.jsonl | {r['isi']}" for r in result['source_evidence'])
         content += '\n\n## Provenance tersimpan\n\nGateway: ' + gateway(run) + '\n\n'
         for label, items in [('Bukti pendukung hasil', result.get('provenance', [])), ('Data yang dievaluasi', result.get('evaluated_provenance', []))]:

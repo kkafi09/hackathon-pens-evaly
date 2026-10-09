@@ -34,6 +34,7 @@ export type GraphData = {
   counts: { customers: number; prospects: number; outlets: number };
 };
 export type Context = {
+  pipeline_candidates?: RecordData[];
   account: RecordData;
   owner: RecordData;
   contacts: RecordData[];
@@ -49,6 +50,27 @@ export type Context = {
   dataset_hash: string;
 };
 export type RunStatus = 'waiting' | 'running' | 'done' | 'review' | 'failed' | 'skipped';
+export type RubricQuestion = {
+  id: string;
+  group: string;
+  text: string;
+  type: 'noul' | 'choice' | 'score';
+  criteria: Record<string, string> | string[];
+};
+export type RubricEvaluation = RubricQuestion & {
+  status: RunStatus;
+  answer: RecordData | null;
+  label?: string;
+  source_ids: string[];
+  applicable: boolean;
+  note?: string;
+  checks: { id: string; passed: boolean | null; message: string; source_ids: string[] }[];
+};
+export type RubricDefinition = {
+  version: string;
+  questions: RubricQuestion[];
+  steps: { id: string; title: string; primitive: string; description: string }[];
+};
 export type ReviewReason = {
   code: string;
   stage: string;
@@ -65,6 +87,7 @@ export type NextStep = {
   expected_outcome: string;
 };
 export type Run = {
+  rubric?: Record<string, RubricEvaluation>;
   review_reasons?: ReviewReason[];
   next_steps?: NextStep[];
   gateway?: string;

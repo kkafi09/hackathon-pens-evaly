@@ -28,18 +28,24 @@ class ControlledJev:
         answers = {}
         for key, q in questions.items():
             if q['type'] == 'score':
-                level = 3 if any('penawaran' in r['isi'].lower() for r in state['expansion_messages']) else 2
+                level = (3 if any('penawaran' in r['isi'].lower() for r in state.get('expansion_messages', [])) else 2 if state.get('expansion_messages') else 0) if key == 'OI-3' else 3
                 probabilities = {str(i): float(i == level) for i in range(4)}
                 if self.ambiguous:
                     probabilities = {'0': 0, '1': 0, '2': .5, '3': .5}
                 answers[key] = {'type': 'score', 'score': level if not self.ambiguous else 2.5, 'confidence': 1 if not self.ambiguous else 0,
                                 'probabilities': probabilities, 'legend': {str(i): v for i, v in enumerate(q['criteria'])}}
             elif q['type'] == 'noul':
-                answers[key] = {'type': 'noul', 'noul': .05}
+                answers[key] = {'type': 'noul', 'noul': (.95 if key in ('OI-1', 'OI-4') and state.get('expansion_messages') or key in ('FE-1', 'FE-3', 'EP-1', 'EP-4', 'EP-5') or key == 'BR-4' else .05)}
             elif key == 'outlet_candidate':
                 answers[key] = choice(q['criteria'], 'uncertain' if self.bad_number else next(iter(q['criteria'])))
             elif key == 'action':
                 answers[key] = choice(q['criteria'], 'proposal')
+            elif key in ('OI-2', 'FE-2'):
+                answers[key] = choice(q['criteria'], 'outlets' if (state.get('expansion_messages') or state.get('selected')) else ('none' if key == 'OI-2' else 'insufficient'))
+            elif key == 'EP-2':
+                answers[key] = choice(q['criteria'], 'interactions')
+            elif key in ('BR-2', 'PC-2'):
+                answers[key] = choice(q['criteria'], 'none')
             else:
                 r = state['messages'][key]
                 selected = 'expansion' if key in ('I0253', 'I0300') else 'other'
@@ -105,7 +111,7 @@ def test_no_opportunity_ambiguous_and_missing_values(data, db_engine):
     run = db.create('C04', data.hash)
     asyncio.run(Analyzer(data, db, ControlledJev()).execute(run))
     assert not run['result']['has_opportunity']
-    assert run['steps'][2]['status'] == 'skipped'
+    assert run['rubric']['FE-1']['status'] == 'skipped'
     assert run['result']['calculation']['gross_annual'] is None
     run = db.create('C02', data.hash)
     asyncio.run(Analyzer(data, db, ControlledJev(ambiguous=True, bad_number=True)).execute(run))
@@ -222,7 +228,10 @@ def test_endpoints_and_exports(data, db_engine):
             asyncio.run(Analyzer(data, db, ControlledJev()).execute(run))
             md = client.get(f"/api/expansion-runs/{run['id']}/export/md")
             assert md.status_code == 200 and 'I0300' in md.text and '42000000' in md.text
+            assert 'OI-1' in md.text and 'EP-5' in md.text and 'Pemeriksaan kode' in md.text
+            assert len(client.get('/api/expansion-rubric').json()['questions']) == 19
             assert 'Bukti pendukung hasil' in md.text and 'K-C06' in md.text and 'openrouter' in md.text
             exported = client.get(f"/api/expansion-runs/{run['id']}/export/csv")
             assert '37800000' in exported.text
+            assert 'rubric_version' in exported.text and 'OI-3' in exported.text and 'evidence_paths' in exported.text
             assert client.get('/api/accounts/C06/expansion-runs').json()[0]['model'] == 'controlled-test-model'

@@ -37,6 +37,7 @@ import {
 import { api, money, type Context, type Evidence, type GraphData, type GraphItem } from './types';
 import WorkflowPanel from './WorkflowPanel';
 import { useTheme } from './theme';
+import { usePresence, useReducedMotion } from './motion';
 const colors: Record<string, string> = {
   account: 'var(--node-account)',
   employee: 'var(--node-employee)',
@@ -140,6 +141,7 @@ function positions(
     const groups = [
       'employee',
       'contact',
+      'account',
       'contract',
       'interaction',
       'ticket',
@@ -152,7 +154,7 @@ function positions(
     ];
     let col = 0;
     groups.forEach((kind) => {
-      const items = graph.nodes.filter((n) => n.kind === kind);
+      const items = graph.nodes.filter((n) => n.kind === kind && n.id !== focused);
       if (!items.length) return;
       items.forEach((n, i) => {
         points[n.id] = { x: 330 + col * 280 + Math.floor(i / 12) * 240, y: (i % 12) * 112 };
@@ -203,6 +205,13 @@ export default function App() {
   const graphWrap = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const flow = useReactFlow();
+  const reducedMotion = useReducedMotion();
+  const cameraDuration = reducedMotion ? 0 : 300;
+  const panelPresence = usePresence(panel ? true : null, 250, focused);
+  const menuPresence = usePresence(menu, 150, focused);
+  const evidencePresence = usePresence(inspected, 200, focused);
+  const visibleMenu = menuPresence.value;
+  const visibleEvidence = evidencePresence.value;
   const selectAccount = (id: string | null) => {
     if (id !== focused) {
       setDetail(null);
@@ -323,10 +332,10 @@ export default function App() {
   }, [graph, focused, detail, filter, search, highlight, proof]);
   useEffect(() => {
     const timer = setTimeout(() => {
-      flow.fitView({ padding: 0.15, duration: 400, maxZoom: focused ? 0.9 : 0.55 });
+      flow.fitView({ padding: 0.15, duration: cameraDuration, maxZoom: focused ? 0.9 : 0.55 });
     }, 130);
     return () => clearTimeout(timer);
-  }, [base, loaded, focused, filter, search, flow]);
+  }, [base, loaded, focused, filter, search, flow, cameraDuration]);
   const choose = (id: string) => {
     setPanel(false);
     setInspected(null);
@@ -352,13 +361,13 @@ export default function App() {
         setInspected(item);
         flow.fitView({
           nodes: liveItem ? [{ id }, { id: focused! }] : [{ id: focused! }],
-          duration: 500,
+          duration: cameraDuration,
           padding: 0.5,
           maxZoom: 1,
         });
       }
     },
-    [detail, focused, flow, proof],
+    [detail, focused, flow, proof, cameraDuration],
   );
   const account = base?.nodes.find((n) => n.id === focused);
   const searchHits =
@@ -369,7 +378,7 @@ export default function App() {
       )
       .slice(0, 6) || [];
   return (
-    <div className={`app ${panel ? 'panel-open' : ''}`}>
+    <div className={`app ${panelPresence.value ? 'panel-open' : ''}`}>
       <div className="workspace">
         <header className="header">
           <div className="brand">
@@ -448,7 +457,7 @@ export default function App() {
                 <button
                   title="Sesuaikan tampilan"
                   aria-label="Sesuaikan tampilan"
-                  onClick={() => flow.fitView({ padding: 0.15, duration: 300 })}
+                  onClick={() => flow.fitView({ padding: 0.15, duration: cameraDuration })}
                 >
                   <Crosshair size={16} />
                 </button>
@@ -501,6 +510,7 @@ export default function App() {
             </div>
             <div className="graph-canvas" ref={graphWrap}>
               <ReactFlow
+                autoPanOnNodeFocus={false}
                 colorMode={theme}
                 nodes={filtered.nodes}
                 edges={filtered.edges}
@@ -559,18 +569,19 @@ export default function App() {
                   <button onClick={() => window.location.reload()}>Muat ulang</button>
                 </div>
               )}
-              {menu && (
+              {visibleMenu && (
                 <div
                   ref={menuRef}
-                  className="floating-menu"
-                  style={{ left: menu.x, top: menu.y }}
+                  className={`floating-menu ${menuPresence.exiting ? 'motion-exit' : 'motion-enter'}`}
+                  inert={menuPresence.exiting}
+                  style={{ left: visibleMenu.x, top: visibleMenu.y }}
                   role="menu"
                   aria-label="Pilihan analisis akun"
                 >
                   <div className="menu-heading">
                     <span className="eyebrow">PILIH ANALISIS</span>
                     <strong>
-                      {menu.entity.id} · {menu.entity.label}
+                      {visibleMenu.entity.id} · {visibleMenu.entity.label}
                     </strong>
                   </div>
                   {locked.map((label, i) => (
@@ -586,7 +597,7 @@ export default function App() {
                   <button
                     role="menuitem"
                     className="expansion-option"
-                    disabled={menu.entity.record.tipe !== 'pelanggan'}
+                    disabled={visibleMenu.entity.record.tipe !== 'pelanggan'}
                     onClick={() => {
                       setPanel(true);
                       setMenu(null);
@@ -596,12 +607,12 @@ export default function App() {
                     <span>
                       Account Expansion
                       <small>
-                        {menu.entity.record.tipe === 'pelanggan'
+                        {visibleMenu.entity.record.tipe === 'pelanggan'
                           ? 'Temukan peluang pertumbuhan'
                           : 'Analisis ini untuk pelanggan existing'}
                       </small>
                     </span>
-                    {menu.entity.record.tipe === 'pelanggan' ? (
+                    {visibleMenu.entity.record.tipe === 'pelanggan' ? (
                       <ArrowRight size={16} />
                     ) : (
                       <LockKeyhole size={13} />
@@ -609,8 +620,11 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {inspected && (
-                <div className="evidence-popover">
+              {visibleEvidence && (
+                <div
+                  className={`evidence-popover ${evidencePresence.exiting ? 'motion-exit' : 'motion-enter'}`}
+                  inert={evidencePresence.exiting}
+                >
                   <button
                     className="close-icon"
                     aria-label="Tutup bukti"
@@ -618,11 +632,11 @@ export default function App() {
                   >
                     <X size={16} />
                   </button>
-                  <span className="eyebrow">BUKTI SUMBER · {inspected.id}</span>
-                  <h3>{inspected.label}</h3>
-                  <small className="source-name">{inspected.source}</small>
+                  <span className="eyebrow">BUKTI SUMBER · {visibleEvidence.id}</span>
+                  <h3>{visibleEvidence.label}</h3>
+                  <small className="source-name">{visibleEvidence.source}</small>
                   <dl>
-                    {Object.entries(inspected.record)
+                    {Object.entries(visibleEvidence.record)
                       .filter(([, value]) => value !== '' && value != null)
                       .map(([key, value]) => (
                         <div key={key}>
@@ -661,14 +675,20 @@ export default function App() {
               </div>
             </div>
           </section>
-          {panel && focused && account && (
+          {panelPresence.value && focused && account && (
             <WorkflowPanel
               key={focused}
+              exiting={panelPresence.exiting}
               account={account}
               context={context}
               jevConfigured={jev}
               onClose={() => {
                 setPanel(false);
+                setInspected(null);
+                document
+                  .querySelector<HTMLElement>(`[data-testid="entity-${focused}"]`)
+                  ?.closest<HTMLElement>('[tabindex]')
+                  ?.focus({ preventScroll: true });
                 setProof([]);
                 setHighlight('');
               }}
@@ -682,7 +702,7 @@ export default function App() {
                     .filter((item) => ids.has(item.id))
                     .map((item) => ({ id: item.id })),
                   padding: 0.2,
-                  duration: 400,
+                  duration: cameraDuration,
                 });
               }}
             />

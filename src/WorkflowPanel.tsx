@@ -15,6 +15,8 @@ import {
   X,
 } from 'lucide-react';
 import EvidenceView from './EvidenceView';
+import RubricView from './RubricView';
+import { Collapse, useAnimatedTab } from './motion';
 import ResultGuidance, { AnalysisSummary } from './ResultGuidance';
 import DeleteRunDialog from './DeleteRunDialog';
 import {
@@ -28,14 +30,9 @@ import {
   type History,
   type RecordData,
   type Run,
+  type RubricDefinition,
+  type RubricEvaluation,
 } from './types';
-const titles = [
-  'Kumpulkan konteks',
-  'Klasifikasi interaksi',
-  'Nilai tingkat niat',
-  'Periksa tiket',
-  'Nilai & tindak lanjut',
-];
 const descriptions = [
   'Hubungkan kontrak, percakapan, kontak, usage, dan tiket akun.',
   'Choice memilah tujuan utama setiap pesan dengan bukti percakapannya.',
@@ -43,7 +40,6 @@ const descriptions = [
   'Noul menilai apakah ada syarat eksplisit sebelum ekspansi.',
   'Kode menghitung nilai. Choice memilih langkah yang sesuai konteks.',
 ];
-const primitives = ['DATA', 'CHOICE', 'SCORE', 'NOUL', 'KODE + CHOICE'];
 const sourceNames: Record<string, string> = {
   contacts: 'Kontak',
   employment_history: 'Riwayat kerja',
@@ -55,6 +51,7 @@ const sourceNames: Record<string, string> = {
   outlets: 'Outlet',
   feature_usage: 'Usage fitur',
   product_usage_daily: 'Transaksi harian',
+  pipeline_candidates: 'Kandidat jalur pipeline',
 };
 const classNames: Record<string, string> = {
   expansion: 'Ekspansi',
@@ -71,7 +68,9 @@ export default function WorkflowPanel({
   onEvidence,
   onEvidenceSet,
   onFocusEvidence,
+  exiting = false,
 }: {
+  exiting?: boolean;
   account: GraphItem;
   context: Context | null;
   jevConfigured: boolean;
@@ -80,6 +79,8 @@ export default function WorkflowPanel({
   onEvidenceSet: (items: Evidence[]) => void;
   onFocusEvidence: () => void;
 }) {
+  const [definition, setDefinition] = useState<RubricDefinition | null>(null);
+  const [questionIds, setQuestionIds] = useState<string[]>([]);
   const [run, setRun] = useState<Run | null>(null);
   const [history, setHistory] = useState<History[]>([]);
   const [replay, setReplay] = useState(false);
@@ -87,15 +88,31 @@ export default function WorkflowPanel({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState('workflow');
+  const animatedTab = useAnimatedTab(tab);
+  const visibleTab = animatedTab.visible;
   const [showHistory, setShowHistory] = useState(false);
-  const [proofMode, setProofMode] = useState<'auto' | 'stage' | 'all' | 'support'>('auto');
+  const [proofMode, setProofMode] = useState<'auto' | 'stage' | 'all' | 'support' | 'question'>(
+    'auto',
+  );
   const [deleteTarget, setDeleteTarget] = useState<History | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const running = run?.status === 'running' || run?.status === 'waiting';
   const runId = run?.id;
   useEffect(() => {
+    document
+      .querySelector<HTMLElement>('.workflow-panel .close-icon')
+      ?.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
     let live = true;
+    api<RubricDefinition>('/expansion-rubric')
+      .then((value) => {
+        if (live) setDefinition(value);
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
     api<History[]>(`/accounts/${account.id}/expansion-runs`)
       .then((x) => {
         if (live) setHistory(x);
@@ -197,26 +214,56 @@ export default function WorkflowPanel({
   const calc = result?.calculation;
   const steps =
     run?.steps ||
-    titles.map((title, i) => ({
-      id: String(i),
-      title,
-      primitive: primitives[i],
+    (definition?.steps || []).map((step) => ({
+      ...step,
       status: 'waiting' as const,
       data: null,
       question_count: 0,
     }));
+  function showQuestion(item: RubricEvaluation) {
+    setQuestionIds(item.source_ids);
+    setProofMode('question');
+  }
+  function evaluations(group: string): RubricEvaluation[] {
+    if (run?.rubric) return Object.values(run.rubric).filter((item) => item.group === group);
+    if (run) return [];
+    return (definition?.questions || [])
+      .filter((item) => item.group === group)
+      .map((item) => ({
+        ...item,
+        status: 'waiting',
+        answer: null,
+        source_ids: [],
+        checks: [],
+        applicable: true,
+      }));
+  }
   const supporting = proofMode === 'support' || (proofMode === 'auto' && !!result);
   const proof = useMemo<Evidence[]>(() => {
     if (!run) return [];
+    if (proofMode === 'question')
+      return (
+        run.result?.evaluated_provenance || run.steps.flatMap((step) => step.provenance || [])
+      ).filter((item: Evidence) => questionIds.includes(item.id));
     if (proofMode === 'all') return run.result?.evaluated_provenance || [];
     if (supporting) return run.result?.provenance || [];
     return run.steps[expanded ?? 0]?.provenance || [];
-  }, [run, expanded, proofMode, supporting]);
+  }, [run, expanded, proofMode, supporting, questionIds]);
   useEffect(() => {
-    onEvidenceSet(proof);
-  }, [proof, onEvidenceSet]);
+    if (!exiting) onEvidenceSet(proof);
+  }, [proof, onEvidenceSet, exiting]);
   return (
-    <aside className="workflow-panel" aria-label={`Account Expansion ${account.id}`}>
+    <aside
+      className={`workflow-panel ${exiting ? 'motion-exit' : 'motion-enter'}`}
+      inert={exiting}
+      aria-label={`Account Expansion ${account.id}`}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !(event.target as HTMLElement).closest('dialog[open]')) {
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       <div className="panel-heading">
         <span className="eyebrow">
           <Sparkles size={12} /> ACCOUNT EXPANSION
@@ -241,13 +288,16 @@ export default function WorkflowPanel({
         </button>
         <button
           className={tab === 'results' ? 'active' : ''}
-          onClick={() => setTab('results')}
+          onClick={() => {
+            setTab('results');
+            setProofMode('support');
+          }}
           disabled={!result}
         >
           Hasil analisis
         </button>
       </div>
-      <div className="panel-scroll">
+      <div className={`panel-scroll tab-${animatedTab.phase}`}>
         {run && result && !running && (
           <AnalysisSummary
             run={run}
@@ -382,7 +432,7 @@ export default function WorkflowPanel({
             )}
           </>
         )}
-        {tab === 'workflow' && (
+        {visibleTab === 'workflow' && (
           <>
             <div className="section-label">
               <span>ALUR PENALARAN</span>
@@ -403,7 +453,7 @@ export default function WorkflowPanel({
                           `0${i + 1}`
                         )}
                       </span>
-                      {i < 4 && <span className="step-line" />}
+                      {i < steps.length - 1 && <span className="step-line" />}
                     </div>
                     <div className="step-content">
                       <button
@@ -417,7 +467,12 @@ export default function WorkflowPanel({
                         <div>
                           <span className="primitive">{step.primitive}</span>
                           <h4>{step.title}</h4>
-                          <p>{descriptions[i]}</p>
+                          <p>
+                            {run && !run.rubric
+                              ? descriptions[i]
+                              : definition?.steps.find((entry) => entry.id === step.id)
+                                  ?.description}
+                          </p>
                         </div>
                         <div className="step-right">
                           <span className={`status ${step.status}`}>
@@ -426,7 +481,7 @@ export default function WorkflowPanel({
                           <ChevronDown size={15} className={expanded === i ? 'rotate' : ''} />
                         </div>
                       </button>
-                      {expanded === i && (
+                      <Collapse open={expanded === i}>
                         <div className="step-details">
                           {i === 0 && context && (
                             <>
@@ -465,7 +520,7 @@ export default function WorkflowPanel({
                               ))}
                             </div>
                           )}
-                          {i === 2 && step.data?.intent && (
+                          {!run?.rubric && i === 2 && step.data?.intent && (
                             <>
                               <strong className="intent-label">{step.data.label}</strong>
                               <Distribution answer={step.data.intent} />
@@ -476,24 +531,25 @@ export default function WorkflowPanel({
                               </div>
                             </>
                           )}
-                          {i === 3 && step.data?.tickets && (
-                            <>
-                              <p className="detail-note">
-                                Nilai Noul: kemungkinan bukti menyatakan syarat eksplisit sebelum
-                                ekspansi. Bukan label penghambat otomatis.
-                              </p>
-                              <div className="answer-list">
-                                {step.data.tickets.map((a: RecordData) => (
-                                  <div key={a.ticket_id}>
-                                    <Evidence id={a.ticket_id} onClick={onEvidence} />
-                                    <span>Noul</span>
-                                    <strong>{a.noul.toFixed(3)}</strong>
-                                  </div>
-                                ))}
-                              </div>
-                            </>
-                          )}
-                          {i === 4 && calc && (
+                          {(step.id === 'readiness' || (!run?.rubric && i === 3)) &&
+                            step.data?.tickets && (
+                              <>
+                                <p className="detail-note">
+                                  Nilai Noul: kemungkinan bukti menyatakan syarat eksplisit sebelum
+                                  ekspansi. Bukan label penghambat otomatis.
+                                </p>
+                                <div className="answer-list">
+                                  {step.data.tickets.map((a: RecordData) => (
+                                    <div key={a.ticket_id}>
+                                      <Evidence id={a.ticket_id} onClick={onEvidence} />
+                                      <span>Noul</span>
+                                      <strong>{a.noul.toFixed(3)}</strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                          {step.id === 'result' && calc && (
                             <div className="calculation">
                               <span>PERHITUNGAN KODE</span>
                               <strong>
@@ -508,6 +564,11 @@ export default function WorkflowPanel({
                               )}
                             </div>
                           )}
+                          <RubricView
+                            items={evaluations(step.id)}
+                            onQuestion={showQuestion}
+                            onEvidence={onEvidence}
+                          />
                           {step.data?.note && <p>{step.data.note}</p>}
                           {i > 0 && !step.data && (
                             <p className="detail-note">
@@ -546,7 +607,7 @@ export default function WorkflowPanel({
                             </details>
                           )}
                         </div>
-                      )}
+                      </Collapse>
                     </div>
                   </div>
                 );
@@ -557,14 +618,20 @@ export default function WorkflowPanel({
               probabilitas deal menang.
             </div>
             {result && (
-              <button className="primary full" onClick={() => setTab('results')}>
+              <button
+                className="primary full"
+                onClick={() => {
+                  setTab('results');
+                  setProofMode('support');
+                }}
+              >
                 Buka hasil analisis <ArrowRight size={15} />
               </button>
             )}
           </>
         )}
-        {tab === 'sources' && <SourceView context={context} onEvidence={onEvidence} />}
-        {tab === 'results' && result && calc && run && (
+        {visibleTab === 'sources' && <SourceView context={context} onEvidence={onEvidence} />}
+        {visibleTab === 'results' && result && calc && run && (
           <section className="analysis-result">
             <div className="result-heading">
               <span className="eyebrow">HASIL ANALISIS</span>
@@ -608,6 +675,28 @@ export default function WorkflowPanel({
                 <li key={i}>{x}</li>
               ))}
             </ul>
+            {run.rubric && (
+              <section aria-label="Evaluasi rubrik">
+                <h4>Evaluasi rubrik · 19 pertanyaan</h4>
+                {(definition?.steps || [])
+                  .filter((group) => evaluations(group.id).length)
+                  .map((group) => (
+                    <details key={group.id}>
+                      <summary>{group.title}</summary>
+                      <RubricView
+                        items={evaluations(group.id)}
+                        onQuestion={showQuestion}
+                        onEvidence={onEvidence}
+                      />
+                    </details>
+                  ))}
+              </section>
+            )}
+            {!run.rubric && (
+              <p className="detail-note">
+                Hasil rubrik lama. Pertanyaan v2 belum dievaluasi pada hasil ini.
+              </p>
+            )}
             <h4>Bukti dan detail teknis</h4>{' '}
             {run && (
               <>
@@ -832,6 +921,25 @@ function SourceView({
         {c.deals.length} deal dan {c.decisions.length} keputusan khusus akun tercatat. Record yang
         tidak ada tidak dibuat oleh aplikasi.
       </p>
+      <h4>Kandidat jalur pipeline</h4>
+      {c.pipeline_candidates?.length ? (
+        c.pipeline_candidates.map((item, i) => (
+          <div className="source-card" key={i}>
+            <strong>{item.label}</strong>
+            <div className="evidence-chips">
+              {item.path.map((id: string) => (
+                <Evidence key={id} id={id} onClick={onEvidence} />
+              ))}
+            </div>
+            <p>
+              Kandidat berbasis record. Relevansi dan kecukupan tindak lanjut dinilai pada
+              PC-1–PC-3.
+            </p>
+          </div>
+        ))
+      ) : (
+        <p>Belum ditemukan jalur pipeline yang didukung ID atau record sumber untuk akun ini.</p>
+      )}
     </section>
   );
 }

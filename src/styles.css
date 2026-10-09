@@ -569,8 +569,10 @@
     @apply py-[12px] px-[14px];
     box-shadow: 0 7px 22px color-mix(in srgb, var(--shadow) 13.3%, transparent);
     transition:
-      border-color 0.2s,
-      box-shadow 0.2s;
+      border-color 150ms,
+      box-shadow 150ms,
+      opacity 150ms,
+      background-color 150ms;
   }
   .entity-top {
     @apply flex;
@@ -2232,4 +2234,124 @@
 .react-flow {
   --xy-background-color: var(--surface);
   background: var(--surface);
+}
+
+/* Motion classes remain outside the component layer to override legacy appear rules. */
+.motion-enter {
+  animation: motion-in 200ms ease-out both;
+}
+.motion-exit {
+  animation: motion-out 200ms ease-in both;
+  pointer-events: none;
+}
+.workflow-panel.motion-enter {
+  animation-duration: 250ms;
+}
+.workflow-panel.motion-exit {
+  animation-duration: 250ms;
+}
+.floating-menu.motion-enter,
+.floating-menu.motion-exit {
+  animation-duration: 150ms;
+}
+.tab-enter {
+  animation: motion-in 180ms ease-out;
+}
+.tab-exit {
+  animation: motion-out 90ms ease-in both;
+  pointer-events: none;
+}
+.motion-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+}
+.motion-collapse.is-open {
+  grid-template-rows: 1fr;
+}
+.motion-collapse > div {
+  min-height: 0;
+  overflow: hidden;
+}
+.react-flow__edge-path {
+  transition:
+    stroke 150ms,
+    opacity 150ms,
+    stroke-width 150ms;
+}
+.workflow-step .status {
+  transition:
+    color 150ms,
+    background-color 150ms;
+}
+.rubric-list {
+  display: grid;
+  gap: 12px;
+  margin-block: 14px;
+}
+.rubric-question {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--raised);
+  min-width: 0;
+}
+.rubric-question h4 {
+  margin-block: 10px;
+  line-height: 1.5;
+}
+.rubric-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rubric-title > strong {
+  color: var(--brand-soft);
+}
+.rubric-title .status {
+  margin-left: auto;
+}
+.rubric-answer {
+  font-weight: 600;
+  color: var(--ink);
+}
+.rubric-question details {
+  margin-top: 10px;
+}
+@keyframes motion-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes motion-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .motion-enter,
+  .motion-exit,
+  .tab-enter,
+  .tab-exit {
+    animation: none;
+  }
+  .motion-collapse,
+  .react-flow__edge-path,
+  .workflow-step .status {
+    transition: none;
+  }
+  .spinner {
+    animation: none;
+  }
 }

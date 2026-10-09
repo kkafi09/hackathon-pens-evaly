@@ -16,11 +16,8 @@ from .database import engine, runs
 from .provenance import EvidenceIndex, merge_evidence, gateway
 from .explanations import explain_run, REVIEW_THRESHOLD
 
-RUBRIC_VERSION = 'expansion-v1.1'
-STEPS = [('context', 'Kumpulkan konteks', 'DATA'), ('classification', 'Klasifikasi interaksi', 'CHOICE'),
-         ('intent', 'Nilai tingkat niat', 'SCORE'), ('tickets', 'Periksa tiket', 'NOUL'),
-         ('result', 'Nilai & tindak lanjut', 'KODE + CHOICE')]
-INTENT_LEVELS = ['Belum ada niat eksplisit', 'Eksplorasi', 'Rencana konkret', 'Permintaan penawaran']
+from .rubric import VERSION as RUBRIC_VERSION, STEPS as RUBRIC_STEPS, INTENT_LEVELS, pending
+STEPS = [(key, title, primitive) for key, title, primitive, _ in RUBRIC_STEPS]
 CLASSIFICATION = {'expansion': 'Rencana pertumbuhan pelanggan: tambahan outlet/cabang, upgrade paket, atau kebutuhan modul baru.',
                   'complaint': 'Keluhan atau masalah operasional adalah tujuan utama.',
                   'renewal': 'Perpanjangan kontrak adalah tujuan utama.', 'other': 'Tujuan lain di luar kategori tersebut.',
@@ -148,6 +145,7 @@ class RunStore:
                'dataset_hash': dataset_hash, 'snapshot': '2026-10-01', 'rubric_version': RUBRIC_VERSION,
                'gateway': 'openrouter', 'requested_model': os.environ.get('OPENROUTER_MODEL', '~typesafe/jev-latest'),
                'status': 'waiting', 'model': None, 'models': [], 'calls': [], 'error': None, 'result': None,
+               'rubric': pending(),
                'steps': [{'id': key, 'title': title, 'primitive': primitive, 'status': 'waiting', 'data': None} for key, title, primitive in STEPS]}
         self.save(run)
         return run
@@ -187,6 +185,9 @@ def calculate(context, selected=None):
     result['source_ids'].append(contract['contract_id'])
     current = int(contract['outlet_kontrak'])
     price, discount = Decimal(contract['harga_per_outlet_bulan']), Decimal(contract['diskon_pct'])
+    if not price.is_finite() or price <= 0 or not discount.is_finite() or not 0 <= discount <= 100:
+        result['assumptions'].append('Harga atau diskon kontrak tidak valid; nilai belum dihitung.')
+        return result
     gross = Decimal(count) * price * 12
     result.update(current_outlets=current, target_outlets=current+count, gross_annual=int(gross),
                   net_annual_scenario=int(gross * (1-discount/100)), price_monthly=int(price), discount_pct=float(discount),
@@ -206,148 +207,5 @@ class Analyzer:
         self.dataset, self.store, self.client = dataset, store, client or JevClient()
 
     async def execute(self, run):
-        stage = run['steps'][0]
-        def save():
-            self.store.save(run)
-        def begin(index):
-            nonlocal stage
-            stage = run['steps'][index]; stage['status'] = 'running'; save()
-        def finish(data, review=False):
-            stage['data'] = data; stage['status'] = 'review' if review else 'done'; save()
-        async def ask(state, questions, ids):
-            stage['question_count'] = stage.get('question_count', 0) + len(questions)
-            save()
-            evidence = evidence_index.collect(state, questions)
-            stage['provenance'] = merge_evidence(stage.get('provenance', []), evidence)
-            stage['active_source_ids'] = [item['id'] for item in evidence]
-            save()
-            response = await self.client.evaluate(state, questions)
-            validate_response(response, questions)
-            for item in stage['provenance']:
-                refs = [item['id']] if item['id'] in questions else item['question_refs']
-                item.setdefault('assessments', {}).update({key: response['answers'][key] for key in refs if key in response['answers']})
-            run['model'] = response['model']
-            if response['model'] not in run['models']:
-                run['models'].append(response['model'])
-            run['calls'].append({'stage': stage['id'], 'at': now(), 'state': state, 'source_ids': [item['id'] for item in evidence],
-                                 'questions': questions, 'response': response, 'gateway': 'openrouter',
-                                 'provider': response.get('provider'), 'response_id': response.get('id'),
-                                 'cost': response.get('usage', {}).get('cost'), 'provenance': evidence})
-            save()
-            return response['answers']
-        try:
-            run['status'] = 'running'; begin(0)
-            c = self.dataset.context(run['account_id'])
-            evidence_index = EvidenceIndex(self.dataset, c)
-            stage['provenance'] = evidence_index.collect(c)
-            run['account_name'] = c['account']['nama']
-            finish({'source_counts': c['source_counts'], 'snapshot': c['snapshot'], 'warnings': c['warnings'],
-                    'usage': c['usage'], 'owner': c['owner'], 'contacts': c['contacts'], 'contracts': c['contracts']})
-            begin(1)
-            classified = []
-            messages = c['interactions']
-            for offset in range(0, len(messages), 8):
-                batch = messages[offset:offset+8]
-                questions = {r['interaction_id']: {'type': 'choice', 'instructions': POLICY + f"Classify the primary purpose of messages.{r['interaction_id']}. Read its supplied reply context.", 'criteria': CLASSIFICATION} for r in batch}
-                answers = await ask({'messages': {r['interaction_id']: r for r in batch}, 'reply_context': [r for r in messages if any(r['interaction_id'] == b['membalas_id'] for b in batch)]}, questions, [r['interaction_id'] for r in batch])
-                classified.extend({'interaction_id': key, **a} for key, a in answers.items())
-                stage['data'] = {'classifications': classified}; save()
-            review = any(is_uncertain(a) or a['choice'] == 'unclear' for a in classified)
-            finish({'classifications': classified}, review)
-            chosen_ids = {a['interaction_id'] for a in classified if a['choice'] == 'expansion' and not is_uncertain(a)}
-            # Customer-origin evidence is required; an internal sales suggestion alone is not buyer intent.
-            expansion = [r for r in messages if r['interaction_id'] in chosen_ids and r['customer_sender']]
-            related_ids = set(chosen_ids)
-            for r in messages:
-                if r['membalas_id'] in chosen_ids:
-                    related_ids.add(r['interaction_id'])
-            thread = [r for r in messages if r['interaction_id'] in related_ids]
-            intent = None
-            if expansion:
-                begin(2)
-                answer = await ask({'expansion_messages': expansion, 'thread': thread, 'deals': c['deals']},
-                                   {'intent': {'type': 'score', 'instructions': POLICY + 'Rate the strongest explicit CURRENT customer expansion intent, using customer statements rather than sales suggestions. A quote request is highest; a concrete opening plan is next.', 'criteria': INTENT_LEVELS}}, list(related_ids))
-                intent = answer['intent']; top = max(intent['probabilities'], key=intent['probabilities'].get)
-                finish({'intent': intent, 'label': INTENT_LEVELS[int(top)], 'source_ids': [r['interaction_id'] for r in expansion]}, is_uncertain(intent))
-                begin(3)
-                ticket_answers = []
-                for offset in range(0, len(c['tickets']), 6):
-                    batch = c['tickets'][offset:offset+6]
-                    questions = {r['ticket_id']: {'type': 'noul', 'instructions': POLICY + f"Does the supplied evidence explicitly state that the issue in tickets.{r['ticket_id']} MUST be resolved before the proposed expansion? Ordinary requests or open status alone are not a prerequisite.",
-                                                  'criteria': {'true': 'Explicit prerequisite supported by the supplied conversation/ticket.', 'false': 'No explicit expansion prerequisite is stated.'}} for r in batch}
-                    answers = await ask({'tickets': {r['ticket_id']: r for r in batch}, 'expansion': expansion, 'bugs': c['bugs'], 'features': c['features']}, questions, [r['ticket_id'] for r in batch]+[r['interaction_id'] for r in expansion])
-                    ticket_answers.extend({'ticket_id': key, **a} for key, a in answers.items())
-                    stage['data'] = {'tickets': ticket_answers}; save()
-                finish({'tickets': ticket_answers, 'note': 'Probabilitas penilaian model, bukan label penghambat otomatis.'})
-            else:
-                for step in run['steps'][2:4]:
-                    step['status'] = 'skipped'; step['data'] = {'note': 'Belum ditemukan bukti ekspansi pelanggan yang cukup jelas.'}
-                save()
-                ticket_answers = []
-            begin(4)
-            candidates = number_candidates(expansion)
-            selected = None
-            if candidates:
-                options = {item['id']: f"{item['count']} outlet TAMBAHAN, kutipan {item['interaction_id']}: {item['quote']}" for item in candidates}
-                options['uncertain'] = 'Tidak jelas, angka bukan tambahan, rencana berbeda belum direkonsiliasi, atau sudah termasuk kontrak.'
-                numeric = await ask({'candidates': candidates, 'messages': expansion, 'contract': c['contracts'], 'snapshot': c['snapshot']},
-                                    {'outlet_candidate': {'type': 'choice', 'instructions': POLICY + 'Select the quoted number explicitly representing NEW additional outlets, not current outlet totals. Code has already tagged timing. Do not compare dates or add numbers. Do not choose an already contracted plan. If multiple independent plans remain unresolved, choose uncertain.', 'criteria': options}}, [r['interaction_id'] for r in expansion])
-                number_answer = numeric['outlet_candidate']
-                if not is_uncertain(number_answer):
-                    selected = next((r for r in candidates if r['id'] == number_answer['choice']), None)
-            calc = calculate(c, selected)
-            action = None
-            if expansion:
-                actions = await ask({'account': c['account'], 'contacts': c['contacts'], 'owner': c['owner'], 'contracts': c['contracts'],
-                                     'expansion': expansion, 'thread': thread, 'intent': intent, 'ticket_assessments': ticket_answers,
-                                     'tickets': c['tickets'], 'calculation': calc, 'deals': c['deals'],
-                                     'precedents_from_other_accounts': c['precedents'], 'account_decisions': c['decisions']},
-                                    {'action': {'type': 'choice', 'instructions': POLICY + 'Choose the best next step. Other-account precedents are comparisons, never approval for this account. Do not promise unreleased features or a discount. Keep a recommendation separate from a customer commitment.', 'criteria': ACTIONS}},
-                                    [r['interaction_id'] for r in expansion]+[r['contract_id'] for r in c['contracts']]+[r['decision_id'] for r in c['precedents']])
-                action = actions['action']
-            evidence_ids = sorted({r['interaction_id'] for r in thread} | set(calc['source_ids']))
-            evaluated = merge_evidence(*(step.get('provenance', []) for step in run['steps'][1:]))
-            supporting = []
-            for rid in evidence_ids:
-                if rid not in evidence_index.items:
-                    continue
-                item = dict(next((entry for entry in evaluated if entry['id'] == rid), evidence_index.items[rid]))
-                item['role'] = 'expansion' if rid in related_ids else 'calculation'
-                item['question_refs'] = [q for call in run['calls'] if rid in call['source_ids'] for q in call['questions']]
-                if selected and rid == selected['interaction_id']:
-                    item['quote'] = selected['quote']
-                    item['fields'] = ['isi']
-                elif item['source'] == 'contracts_billing.csv':
-                    item['fields'] = ['outlet_kontrak', 'harga_per_outlet_bulan', 'diskon_pct', 'batas_outlet_paket']
-                supporting.append(item)
-            concerns = [f"{r['interaction_id']}: Belum ada balasan tercatat" for r in expansion if not r['reply_count']]
-            if not c['deals']:
-                concerns.append('Belum ada deal tercatat untuk akun ini; peluang bukan booking CRM.')
-            if not c['decisions']:
-                concerns.append('Tidak ada keputusan khusus akun; preseden akun lain hanya pembanding.')
-            for email in expansion:
-                if re.search(r'(?:sudah.*tiket|tiket.*sudah)', email['isi'], re.I) and c['tickets'] and all(t['dibuat'] > email['tanggal'] for t in c['tickets']):
-                    concerns.append(f"{email['interaction_id']} menyebut tiket sudah dikirim, tetapi tiket tersedia bertanggal setelah email. Hubungannya perlu dikonfirmasi.")
-            outcome = 'Peluang ekspansi teridentifikasi' if expansion else ('Sinyal perlu ditinjau' if review else 'Belum ditemukan peluang dari data tersedia')
-            run['result'] = {'title': outcome, 'has_opportunity': bool(expansion), 'intent': intent,
-                             'intent_label': run['steps'][2]['data'].get('label'), 'calculation': calc,
-                             'action': action, 'action_label': ACTION_LABELS.get(action['choice']) if action else 'Tinjau bukti / lakukan discovery',
-                             'owner': c['owner'], 'concerns': concerns, 'evidence_ids': evidence_ids,
-                             'ticket_assessments': ticket_answers, 'candidates': candidates,
-                             'provenance': supporting, 'evaluated_provenance': evaluated,
-                             'source_evidence': [r for r in messages if r['interaction_id'] in evidence_ids],
-                             'precedents': c['precedents'] if expansion else []}
-            finish(run['result'], bool(expansion and (not selected or is_uncertain(intent) or is_uncertain(action))))
-            run['status'] = 'review' if any(s['status'] == 'review' for s in run['steps']) else 'done'
-        except Exception as exc:
-            stage['status'] = 'failed'
-            run['status'] = 'failed'
-            run['error'] = str(exc) if isinstance(exc, ValueError) else 'Analisis gagal karena kesalahan internal. Periksa log backend.'
-            if not isinstance(exc, ValueError):
-                import logging
-                logging.exception('Analysis failed: %s', run['id'])
-            for step in run['steps']:
-                if step['status'] == 'waiting':
-                    step['status'] = 'skipped'
-        finally:
-            run['finished_at'] = now(); explain_run(run); save()
+        from .expansion_v2 import execute
+        await execute(self, run)

@@ -6,7 +6,8 @@ ACTION_NAMES = {'discovery': 'discovery kebutuhan', 'proposal': 'menyiapkan pena
 
 
 def explain_run(run):
-    reasons = []
+    modern = run.get('rubric_version') == 'expansion-v2.0'
+    reasons = list(run.get('review_reasons', [])) if modern else []
     steps = run.get('steps', [])
     result = run.get('result') or {}
 
@@ -25,6 +26,8 @@ def explain_run(run):
                             'message': 'Beberapa pilihan memiliki probabilitas tertinggi yang sama. Belum ada satu pilihan yang paling kuat.', 'source_ids': list(ids)})
 
     for step in steps:
+        if modern:
+            break  # v2 records concrete reasons at the point where each check fires.
         if step['status'] != 'review':
             continue
         before = len(reasons)

@@ -16,6 +16,7 @@ class EvidenceIndex:
         for node in dataset.graph(self.aid)['nodes']:
             self.add(node['id'], node['record'], node['source'], node['label'], node['id'])
         sources = {
+            'account': ('account_id', 'crm_accounts.csv'),
             'contacts': ('contact_id', 'crm_contacts.csv'), 'interactions': ('interaction_id', 'interactions.jsonl'),
             'contracts': ('contract_id', 'contracts_billing.csv'), 'tickets': ('ticket_id', 'support_tickets.csv'),
             'deals': ('deal_id', 'crm_deals.csv'), 'decisions': ('decision_id', 'decision_log.csv'),
@@ -24,13 +25,17 @@ class EvidenceIndex:
             'employment_history': (None, 'contact_employment_history.csv'),
             'outlets': ('outlet_id', 'outlets.csv'), 'feature_usage': (None, 'feature_usage_monthly.csv'),
             'usage': (None, 'product_usage_daily.csv'),
+            'pipeline_deals': ('deal_id', 'crm_deals.csv'), 'pipeline_accounts': ('account_id', 'crm_accounts.csv'),
+            'pipeline_history': (None, 'contact_employment_history.csv'),
         }
         for table, (key, source) in sources.items():
-            for record in context.get(table, []):
-                rid = str(record[key]) if key else f'{table}:{hashlib.sha256(fingerprint(record).encode()).hexdigest()[:16]}'
+            values = [context[table]] if table == 'account' else context.get(table, [])
+            for record in values:
+                namespace = 'employment_history' if table == 'pipeline_history' else table
+                rid = str(record[key]) if key else f'{namespace}:{hashlib.sha256(fingerprint(record).encode()).hexdigest()[:16]}'
                 if table == 'releases':
                     rid = f'release:{rid}'
-                node_id = rid if rid in self.items else None
+                node_id = self.items.get(rid, {}).get('node_id')
                 if table == 'usage':
                     node_id = f'usage:{self.aid}'
                 self.add(rid, record, source, record.get('nama') or record.get('subjek') or record.get('judul') or rid, node_id)

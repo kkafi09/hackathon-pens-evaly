@@ -7,6 +7,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from .pipeline import candidates as pipeline_candidates
 
 SOURCE = Path(__file__).resolve().parents[1] / 'data' / 'dataset_kasirnusa'
 SNAPSHOT = '2026-10-01'
@@ -173,7 +174,11 @@ class Dataset:
                   'feature_usage': own('feature_usage_monthly'), 'features': self.tables['features'],
                   'bugs': bugs, 'releases': self.tables['releases'], 'precedents': precedents,
                   'snapshot': SNAPSHOT, 'dataset_hash': self.hash, 'warnings': self.warnings}
-        result['source_counts'] = {key: len(result[key]) for key in ('contacts', 'employment_history', 'interactions', 'contracts', 'deals', 'decisions', 'tickets', 'outlets', 'feature_usage')}
+        result['pipeline_candidates'] = pipeline_candidates(self, aid, result)
+        result['pipeline_deals'] = list({r['deal']['deal_id']: r['deal'] for r in result['pipeline_candidates']}.values())
+        result['pipeline_accounts'] = list({r['account']['account_id']: r['account'] for r in result['pipeline_candidates']}.values())
+        result['pipeline_history'] = [record for r in result['pipeline_candidates'] for record in r['records'] if 'mulai' in record and 'contact_id' in record]
+        result['source_counts'] = {key: len(result[key]) for key in ('contacts', 'employment_history', 'interactions', 'contracts', 'deals', 'decisions', 'tickets', 'outlets', 'feature_usage', 'pipeline_candidates')}
         result['source_counts']['product_usage_daily'] = sum(x['records'] for x in monthly)
         return result
 
@@ -246,6 +251,16 @@ class Dataset:
             uid = f'usage:{aid}'
             node(uid, 'usage', 'Penggunaan produk · 12 bulan', {'monthly': c['usage']}, 'product_usage_daily.csv')
             edge(aid, uid, 'MENGGUNAKAN', 'product_usage_daily.csv')
+            for candidate in c['pipeline_candidates']:
+                target, deal = candidate['account'], candidate['deal']
+                node(target['account_id'], 'account', target['nama'], target, 'crm_accounts.csv')
+                node(deal['deal_id'], 'deal', deal['stage'], deal, 'crm_deals.csv')
+                edge(target['account_id'], deal['deal_id'], 'MEMILIKI', deal['deal_id'])
+                for record in candidate['records']:
+                    if 'contact_id' in record and 'mulai' in record:
+                        edge(record['contact_id'], record['account_id'], 'PERNAH_BEKERJA_DI' if record['selesai'] else 'BEKERJA_DI', record)
+                    elif candidate['kind'] == 'interaction' and 'interaction_id' in record:
+                        edge(record['interaction_id'], target['account_id'], 'MENYEBUT', record['interaction_id'])
         pipeline = [r for r in self.tables['crm_deals'] if r['status'] == 'Terbuka' and self.accounts[r['account_id']]['tipe'] == 'prospek']
         return {'nodes': list(nodes.values()), 'edges': list(edges.values()), 'snapshot': SNAPSHOT, 'dataset_hash': self.hash,
                 'pipeline': pipeline, 'pipeline_value': sum(int(r['nilai_tahunan']) for r in pipeline),

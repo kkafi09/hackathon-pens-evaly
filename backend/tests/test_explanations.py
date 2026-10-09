@@ -21,8 +21,8 @@ def reviewed_run(data, db_engine):
     class ReviewAction(ControlledJev):
         async def evaluate(self, state, questions):
             response = await super().evaluate(state, questions)
-            if 'intent' in response['answers']:
-                response['answers']['intent'].update(score=2.03, confidence=.97, probabilities={'0': 0, '1': 0, '2': .97, '3': .03})
+            if 'OI-3' in response['answers']:
+                response['answers']['OI-3'].update(score=2.03, confidence=.97, probabilities={'0': 0, '1': 0, '2': .97, '3': .03})
             if 'action' in response['answers']:
                 response['answers']['action'].update(choice='discovery', confidence=.56, probabilities={'discovery': .65, 'proposal': .35, 'resolve': 0, 'stakeholder': 0, 'insufficient': 0})
             return response
@@ -30,6 +30,17 @@ def reviewed_run(data, db_engine):
     run = db.create('C02', data.hash)
     asyncio.run(Analyzer(data, db, ReviewAction()).execute(run))
     return db, run
+
+
+def as_legacy(run):
+    legacy = copy.deepcopy(run)
+    legacy['rubric_version'] = 'expansion-v1.1'
+    legacy.pop('rubric', None)
+    legacy['steps'] = [
+        {'id': 'intent', 'status': 'done', 'data': {'intent': legacy['result']['intent']}},
+        {'id': 'result', 'status': 'review', 'data': legacy['result']},
+    ]
+    return legacy
 
 
 def test_c02_explanation_and_legacy(data, db_engine):
@@ -45,10 +56,10 @@ def test_c02_explanation_and_legacy(data, db_engine):
     assert any('6 outlet' in x for x in step['confirmations'])
     assert step['expected_outcome']
     assert db.get(run['id'])['review_reasons'] == reasons
-    legacy = copy.deepcopy(run)
+    legacy = as_legacy(run)
     for container in [legacy, legacy['result']]:
         container.pop('review_reasons'); container.pop('next_steps')
-    assert explain_run(legacy)['review_reasons'] == reasons
+    assert explain_run(legacy)['review_reasons'][0]['confidence'] == .56
 
 
 def test_uncertainty_reasons_and_missing_history():
@@ -65,7 +76,7 @@ def test_uncertain_number_and_intent(data, db_engine):
     run = db.create('C02', data.hash)
     asyncio.run(Analyzer(data, db, ControlledJev(ambiguous=True, bad_number=True)).execute(run))
     assert any(r['code'] == 'unconfirmed_outlets' for r in run['review_reasons'])
-    assert any(r['stage'] == 'intent' and r['code'] == 'tied_choices' for r in run['review_reasons'])
+    assert any(r['stage'] == 'opportunity' and r['code'] == 'tied_choices' for r in run['review_reasons'])
     run = db.create('C04', data.hash)
     asyncio.run(Analyzer(data, db, ControlledJev()).execute(run))
     assert run['status'] == 'done' and run['review_reasons'] == []
@@ -98,6 +109,7 @@ def test_delete_status_and_exports(data, db_engine, status):
 def test_legacy_read_does_not_write(data, db_engine):
     import backend.app as module
     db, run = reviewed_run(data, db_engine)
+    run = as_legacy(run)
     run.pop('review_reasons'); run.pop('next_steps')
     run['result'].pop('review_reasons'); run['result'].pop('next_steps')
     db.save(run)
