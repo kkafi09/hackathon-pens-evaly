@@ -28,9 +28,9 @@ def markdown(run, lang='en'):
             'Base score = weighted group average; final score = 100 × min(base score/100, OI-1, EP-1, EP-4).', '']
         for group in score['groups']:
             lines.append(f"- {group['label']}: policy weight {group['policy_weight']}%; effective weight {group['effective_weight']:.6f}; value {group['value']}; applicable: {group['applicable']}")
-        lines += ['', '| Parameter | Raw | Effective | Effective weight | Points | Applicable / limits | Sources |', '| --- | --- | --- | --- | --- | --- | --- |']
+        lines += ['', '| Parameter | Raw contribution | Applicable / limits | Sources |', '| --- | --- | --- | --- |']
         for p in score['parameters']:
-            lines.append(f"| {p['id']} | {p['raw_value']} | {p['effective_value']} | {p['effective_weight']:.6f} | {p['weighted_points']} | {p['applicable']}: {'; '.join(p['adjustments'])} | {'; '.join(p['source_ids'])} |")
+            lines.append(f"| {p['id']} | {p['raw_value']} | {p['applicable']}: {'; '.join(p['adjustments'])} | {'; '.join(p['source_ids'])} |")
     lines += ['', '## Results', '', f"- Additional outlets: {calc['additional_outlets']}",
         f"- Target outlets: {calc['target_outlets']}", f"- Annualized gross (IDR): {rupiah(calc['gross_annual'], lang)}",
         f"- Scenario net (IDR): {rupiah(calc['net_annual_scenario'], lang)}", f"- Formula: {calc['formula']}",

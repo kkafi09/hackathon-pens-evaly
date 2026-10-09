@@ -1,4 +1,4 @@
-import { t, presentText as tx, useLanguage, locale } from './i18n';
+import { t, presentText as tx, useLanguage } from './i18n';
 import { scorePercent, type ExpansionScore } from './types';
 
 export function ScoreHeadline({ score }: { score?: ExpansionScore | null }) {
@@ -76,8 +76,7 @@ export default function ExpansionScoreDetails({
           <thead>
             <tr>
               <th>{t('Parameter')}</th>
-              <th>{t('Kontribusi mentah / efektif')}</th>
-              <th>{t('Bobot efektif / poin')}</th>
+              <th>{t('Kontribusi mentah')}</th>
               <th>{t('Penelusuran')}</th>
             </tr>
           </thead>
@@ -89,21 +88,10 @@ export default function ExpansionScoreDetails({
                   <p>{tx(item.text)}</p>
                 </td>
                 <td className="p-2 align-top">
-                  {item.applicable
-                    ? `${contribution(item.raw_value)} / ${contribution(item.effective_value)}`
-                    : t('Tidak berlaku')}
+                  {item.applicable ? contribution(item.raw_value) : t('Tidak berlaku')}
                   {item.adjustments.map((note) => (
                     <p key={tx(note)}>{tx(note)}</p>
                   ))}
-                </td>
-                <td className="p-2 align-top">
-                  {scorePercent(item.effective_weight * 100)} /{' '}
-                  {item.weighted_points == null
-                    ? '—'
-                    : item.weighted_points.toLocaleString(locale(), {
-                        maximumFractionDigits: 3,
-                      })}{' '}
-                  {t('poin') + ' '}
                 </td>
                 <td className="p-2 align-top">
                   {!!item.source_ids.length && (

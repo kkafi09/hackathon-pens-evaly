@@ -31,11 +31,32 @@ test('language switches preserve context, results, original evidence and the vie
   await page.getByRole('button', { name: 'Buka hasil analisis', exact: true }).click();
   await page.getByRole('button', { name: 'Lihat penjelasan hasil' }).click();
   await page.waitForTimeout(400);
+  const scoreTable = page.getByRole('region', { name: 'Bagaimana skor dihitung' }).locator('table');
+  await expect(scoreTable.locator('th')).toHaveText([
+    'Parameter',
+    'Kontribusi mentah',
+    'Penelusuran',
+  ]);
+  await expect(scoreTable.locator('tbody tr')).toHaveCount(19);
+  await expect(page.getByTestId('score-OI-1').locator('td')).toHaveCount(3);
   const viewport = await page.locator('.react-flow__viewport').getAttribute('style');
   await page.getByRole('combobox', { name: 'Bahasa', exact: true }).selectOption('en');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   const summary = page.getByRole('region', { name: 'Analysis summary' });
   await expect(summary).toContainText('Result needs review');
+  const englishTable = page
+    .getByRole('region', { name: 'How the score is calculated' })
+    .locator('table');
+  await expect(englishTable.locator('th')).toHaveText([
+    'Parameter',
+    'Raw contribution',
+    'Traceability',
+  ]);
+  await expect(page.getByTestId('score-OI-1').locator('td').nth(1)).toHaveText(
+    new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(
+      fixture.result.expansion_score.parameters[0].raw_value * 100,
+    ) + '%',
+  );
   await expect(summary).toContainText('Original text: Catatan arsip yang belum dipetakan');
   await expect(summary).toContainText(
     `Expansion support score: ${fixture.result.expansion_score.display_value.toFixed(1)}%`,

@@ -113,6 +113,10 @@ def test_all_api_and_export_surfaces(fixtures, monkeypatch):
     assert row['title'] == 'Result needs review'
     assert json.loads(row['provenance'])['supporting'] == original['result']['provenance']
     assert row['validation_status'] == original['status']
+    exported_score = json.loads(row['expansion_score'])
+    for a, b in zip(exported_score['parameters'], original['result']['expansion_score']['parameters']):
+        for field in ('raw_value', 'effective_value', 'effective_weight', 'weighted_points'):
+            assert a[field] == b[field]
     for response in [client.get(f'/api/expansion-runs/{rid}/export/pdf?lang=en'), client.post('/api/expansion-runs/export/pdf?lang=en', json={'run_ids': [rid, run['id']]})]:
         assert response.status_code == 200
         contents = '\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(response.content)).pages)
@@ -159,3 +163,38 @@ def test_localized_formats_and_incomplete_or_no_signal(fixtures):
     assert english['status'] == 'done'
     assert english['result']['validation_summary']['title'] == 'No expansion signal found in the available data'
     assert english['result']['has_opportunity'] == empty['result']['has_opportunity']
+
+
+@pytest.mark.parametrize('lang,header', [('id', 'Kontribusi mentah'), ('en', 'Raw contribution')])
+def test_parameter_tables_only_show_raw_contribution(fixtures, monkeypatch, lang, header):
+    from backend.expansion_score import markdown_score
+    from backend.localized_exports import markdown
+    import backend.pdf_reports as pdf
+    run = explain_run(copy.deepcopy(fixtures[2]))
+    run['stale'] = False  # Set by get_run before export in the application.
+    before = copy.deepcopy(run)
+    displayed = project(run, lang)
+    document = markdown_score(run['result']['expansion_score']) if lang == 'id' else markdown(displayed)
+    lines = document.splitlines()
+    table_header = next(line for line in lines if line.startswith('| Parameter |'))
+    assert table_header.split('|')[2].strip() == header
+    assert len(table_header.split('|')) == 6  # four columns plus delimiters
+    assert 'Efektif' not in table_header and 'Effective' not in table_header
+    assert 'Poin' not in table_header and 'Points' not in table_header
+    rows = [line for line in lines if line.startswith(('| OI-', '| EP-', '| FE-', '| BR-', '| PC-'))]
+    assert len(rows) == 19 and all(len(line.split('|')) == 6 for line in rows)
+    assert run['result']['expansion_score']['parameters'][0]['source_ids'][0] in document
+    captured = []
+    original_table = pdf.LongTable
+    def capture(data, *args, **kwargs):
+        labels = [cell.getPlainText() for cell in data[0]]
+        if labels[0] == 'Parameter':
+            captured.append(data)
+        return original_table(data, *args, **kwargs)
+    monkeypatch.setattr(pdf, 'LongTable', capture)
+    pdf.render([run, copy.deepcopy(fixtures[3])], lang=lang)
+    assert len(captured) == 2
+    for table in captured:
+        assert [cell.getPlainText() for cell in table[0]][:2] == ['Parameter', header]
+        assert len(table) == 20 and all(len(row) == 3 for row in table)
+    assert run == before

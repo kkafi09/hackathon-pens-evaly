@@ -88,7 +88,7 @@ def render(runs, lang='id'):
             heading(tr('Bagaimana skor dihitung'))
             story.append(para(tr('Skor dasar = rata-rata kelompok berbobot. Skor akhir dibatasi dukungan OI-1, EP-1, dan EP-4. Bobot dibagi rata antarparameter yang berlaku dalam kelompok.')))
             table([tr('Kelompok'), tr('Bobot / efektif'), tr('Kontribusi')], [[g['label'], f"{g['policy_weight']}% / {g['effective_weight']:.4f}", g['value'] if g['applicable'] else tr('Tidak berlaku')] for g in score['groups']], [220, 140, 155])
-            table([tr('Parameter'), tr('Mentah / efektif'), tr('Bobot / poin'), tr('Pembatas / sumber')], [[p['id'], f"{p['raw_value']} / {p['effective_value']}" if p['applicable'] else tr('Tidak berlaku'), f"{p['effective_weight']:.6f} / {p['weighted_points']}", '\n'.join(p['adjustments']) + '\n' + tr('Sumber:') + ' ' + '; '.join(p['source_ids'])] for p in score['parameters']], [65, 115, 100, 235])
+            table([tr('Parameter'), tr('Kontribusi mentah'), tr('Pembatas / sumber')], [[p['id'], p['raw_value'] if p['applicable'] else tr('Tidak berlaku'), '\n'.join(p['adjustments']) + '\n' + tr('Sumber:') + ' ' + '; '.join(p['source_ids'])] for p in score['parameters']], [65, 140, 310])
         heading(tr('Yang perlu ditinjau'))
         reasons = run.get('review_reasons', [])
         for reason in reasons:

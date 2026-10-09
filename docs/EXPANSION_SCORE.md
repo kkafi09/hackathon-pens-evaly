@@ -55,7 +55,7 @@ Pipeline netral hanya jika tidak ada kandidat jalur berbasis record, PC-1 ≤0,4
 
 Satu sumber boleh selesai dengan catatan. Kontribusi EP-3 maksimal 2/3, EP-5 menjadi 0. Klaim EP-3 beberapa sumber yang bertentangan dengan snapshot memicu review. Beberapa record dari satu berkas tetap satu sumber.
 
-Untuk ekspansi outlet, input estimasi yang belum lolos pemeriksaan kode membuat kontribusi FE-1/FE-3 menjadi 0, meskipun model menjawab mendukung. Jawaban asli tidak diubah. Rincian memperlihatkan kontribusi mentah dan efektif beserta alasannya.
+Untuk ekspansi outlet, input estimasi yang belum lolos pemeriksaan kode membuat kontribusi FE-1/FE-3 menjadi 0, meskipun model menjawab mendukung. Jawaban asli tidak diubah. Tabel dashboard, Markdown, dan PDF memperlihatkan kontribusi mentah, alasan penyesuaian, serta sumber. Kontribusi efektif, bobot efektif parameter, dan poin tetap tersedia pada API serta audit CSV, tetapi tidak ditampilkan sebagai kolom tabel.
 
 Jawaban wajib yang belum valid tidak dikeluarkan dari pembagi untuk menaikkan skor. Skor akhir tidak tersedia sampai validasi lengkap. Parameter yang secara sah tidak berlaku dikeluarkan dari rata-rata kelompok; kelompok tanpa parameter berlaku dikeluarkan dari pembagi akhir.
 

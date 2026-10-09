@@ -53,10 +53,10 @@ def markdown_score(score):
         '### Bagaimana skor dihitung', '', 'Skor dasar = rata-rata kelompok berbobot; skor akhir = 100 × min(skor dasar/100, OI-1, EP-1, EP-4).', '']
     for group in score['groups']:
         lines.append(f"- {group['label']}: bobot {group['policy_weight']}%; bobot efektif {group['effective_weight']:.6f}; nilai {group['value']}; berlaku: {group['applicable']}")
-    lines += ['', '| Parameter | Mentah | Efektif | Bobot efektif | Poin | Berlaku / pembatas | Sumber |',
-              '| --- | --- | --- | --- | --- | --- | --- |']
+    lines += ['', '| Parameter | Kontribusi mentah | Berlaku / pembatas | Sumber |',
+              '| --- | --- | --- | --- |']
     for p in score['parameters']:
-        lines.append(f"| {p['id']} | {p['raw_value']} | {p['effective_value']} | {p['effective_weight']:.6f} | {p['weighted_points']} | {p['applicable']}: {'; '.join(p['adjustments'])} | {'; '.join(p['source_ids'])} |")
+        lines.append(f"| {p['id']} | {p['raw_value']} | {p['applicable']}: {'; '.join(p['adjustments'])} | {'; '.join(p['source_ids'])} |")
     return '\n'.join(lines) + '\n\n'
 
 
