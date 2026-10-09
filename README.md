@@ -4,7 +4,7 @@ Dashboard context graph untuk Account Expansion. React + TypeScript + React Flow
 
 ## Menjalankan di Windows
 
-Prasyarat: Bun 1.4.2+, Node.js 22+ untuk toolchain Vite/Playwright, dan Python 3.12+. Bun digunakan sebagai package manager dan script runner frontend. Jalankan dari folder `03 Dashboard`.
+Prasyarat: Bun 1.4.2+, Node.js 22+ untuk toolchain Vite/Playwright, dan Python 3.12+. Bun digunakan sebagai package manager dan script runner frontend. Jalankan dari root repositori (atau folder `03 Dashboard` pada workspace induk).
 
 ```powershell
 python -m venv .venv
@@ -125,7 +125,7 @@ bunx playwright install chromium
 bun run test:e2e
 ```
 
-Backend test memakai database temporer dan respons Jev terkontrol. Browser test memakai route mock untuk error/replay dan tidak memasukkan hasil ke database produksi. Tidak ada panggilan Jev berbayar dalam test otomatis.
+Backend test memakai MySQL khusus tes dengan TEST_DATABASE_URL dan DATABASE_URL berakhiran _test; jalankan migration/seeder sebelum pytest. Respons Jev terkontrol. Browser test memakai route mock untuk error/replay dan tidak memasukkan hasil ke database produksi. Tidak ada panggilan Jev berbayar dalam test otomatis.
 
 Cakupan: seluruh akun/relasi, C02/C06, formula, tanpa bukti, data ambigu, key kosong, respons salah, restart, history, ekspor, lima pilihan, prospek terkunci, evidence highlight, replay, dan layar ponsel. Playwright otomatis menyalakan server pada port 8000/5173 jika belum berjalan.
 

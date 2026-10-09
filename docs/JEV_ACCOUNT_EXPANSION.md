@@ -6,7 +6,7 @@ Tanggal kajian dokumentasi: 9 Oktober 2026. Snapshot dataset bisnis tetap 1 Okto
 
 **Status: rancangan integrasi. Belum ada panggilan API Jev atau hasil evaluasi model yang dijalankan sebagai bagian penyusunan dokumen ini.** Contoh penilaian di bawah merupakan pertanyaan yang diusulkan, bukan hasil model.
 
-Implementasi dashboard kini tersedia pada `03 Dashboard`; baca [panduan dashboard](03%20Dashboard/README.md) dan [instruksi implementasi](03%20Dashboard/AGENTS.md). Integrasi memakai API asli dan riwayat lokal; respons terkontrol hanya dipakai dalam pengujian. Pengujian aplikasi tidak membuktikan akurasi model asli pada dataset.
+Implementasi dashboard tersedia pada root repositori; baca [panduan dashboard](../README.md) dan [instruksi implementasi](../AGENTS.md). Integrasi memakai API asli dan riwayat MySQL; respons terkontrol hanya dipakai dalam pengujian. Pengujian aplikasi tidak membuktikan akurasi model asli pada dataset.
 
 ## Apa itu Jev?
 
@@ -106,7 +106,7 @@ Skenario neto jika diskon 10% tetap berlaku: `Rp42.000.000 x 90% = Rp37.800.000`
 
 Total potensi tambahan annualized bruto Rp67.200.000; skenario neto Rp61.740.000. Angka ini bukan booking pasti dan bukan otomatis pendapatan 2027. Kelanjutan diskon serta tanggal go-live perlu dikonfirmasi. Biaya premium upgrade tidak dihitung karena harga tersebut belum tersedia.
 
-Referensi lokal: `01 Case/dataset_kasirnusa/interactions.jsonl`, `contracts_billing.csv`, `crm_accounts.csv`, dan `employees.csv` pada folder dataset yang sama. Verifikasi ulang record saat implementasi; jangan menjadikan contoh ini pengganti analisis dataset penuh.
+Referensi lokal: `data/dataset_kasirnusa/interactions.jsonl`, `contracts_billing.csv`, `crm_accounts.csv`, dan `employees.csv` pada folder dataset yang sama. Verifikasi ulang record saat implementasi; jangan menjadikan contoh ini pengganti analisis dataset penuh.
 
 ## Peran data usage
 

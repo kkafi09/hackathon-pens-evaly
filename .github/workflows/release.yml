@@ -50,6 +50,24 @@ jobs:
       - run: bun run check
       - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e
+      - name: Build and smoke-test separate images
+        run: |
+          docker build -f Dockerfile.backend -t evaly-backend-test .
+          docker build -f Dockerfile.frontend -t evaly-frontend-test .
+          docker run -d --name evaly-backend-smoke --network host -e DATABASE_URL -e OPENROUTER_API_KEY evaly-backend-test
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/api/health/live && break || sleep 2; done
+          docker exec evaly-backend-smoke python -m alembic upgrade head
+          docker exec evaly-backend-smoke python -m backend.seed
+          curl -fsS http://127.0.0.1:8000/api/health/ready
+          docker run -d --name evaly-frontend-smoke --network host -e BACKEND_URL=http://127.0.0.1:8000 evaly-frontend-test
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/healthz && break || sleep 2; done
+          curl -fsS http://127.0.0.1:8080/healthz
+          curl -fsS http://127.0.0.1:8080/api/graph > /tmp/evaly-graph.json
+          python -c "import json; graph=json.load(open('/tmp/evaly-graph.json')); assert sum(n['kind']=='account' for n in graph['nodes'])==45"
+      - name: Clean up smoke containers
+        if: always()
+        run: |
+          docker rm -f evaly-frontend-smoke evaly-backend-smoke 2>/dev/null || true
 
   images:
     if: github.event_name != 'pull_request'

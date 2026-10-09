@@ -8,9 +8,12 @@ def main():
     base = os.environ['COOLIFY_URL'].rstrip('/') + '/api/v1'
     tag = 'sha-' + os.environ['GITHUB_SHA']
     with httpx.Client(headers={'Authorization': 'Bearer ' + os.environ['COOLIFY_API_TOKEN']}, timeout=30) as client:
+        current = client.get(base + '/applications/' + os.environ['COOLIFY_BACKEND_UUID'])
+        current.raise_for_status()
+        backend_running = current.json().get('status', '').startswith('running')
         # Never replace a backend while its in-process analysis is still running.
         deadline = time.monotonic() + 600
-        while True:
+        while backend_running:
             health = httpx.get(os.environ['BACKEND_DOMAIN'].rstrip('/') + '/api/health/ready', timeout=10)
             if health.status_code in (404, 502, 503) or (health.is_success and health.json().get('active_runs', 0) == 0):
                 break
@@ -21,7 +24,7 @@ def main():
             uuid = os.environ[f'COOLIFY_{kind}_UUID']
             response = client.patch(base + '/applications/' + uuid, json={'docker_registry_image_tag': tag})
             response.raise_for_status()
-            if kind == 'BACKEND':
+            if kind == 'BACKEND' and backend_running:
                 # Stop first: startup recovery must never mark another instance's work failed.
                 stopped = client.post(base + '/applications/' + uuid + '/stop')
                 stopped.raise_for_status()

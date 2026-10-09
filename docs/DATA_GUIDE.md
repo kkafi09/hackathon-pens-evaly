@@ -14,7 +14,7 @@ Instruksi ini menjadi panduan ketika diminta melakukan overview, analisis, atau 
 
 ## Referensi rancangan Jev dan dashboard
 
-Implementasi dashboard berada di `03 Dashboard/`. Ikuti [instruksi dashboard](03%20Dashboard/AGENTS.md) untuk pengembangan dan [panduan menjalankan](03%20Dashboard/README.md) untuk setup, demo, serta verifikasi. Empat track dikunci; Account Expansion menggunakan Choice klasifikasi, Score niat, Noul syarat tiket, serta perhitungan kode dan Choice tindakan.
+Implementasi dashboard berada di root repositori. Ikuti [instruksi dashboard](../AGENTS.md) untuk pengembangan dan [panduan menjalankan](../README.md) untuk setup, demo, serta verifikasi. Empat track dikunci; Account Expansion menggunakan Choice klasifikasi, Score niat, Noul syarat tiket, serta perhitungan kode dan Choice tindakan.
 
 Baca [JEV_ACCOUNT_EXPANSION.md](JEV_ACCOUNT_EXPANSION.md) ketika membahas atau mengimplementasikan Jev/TypeSafe dan dashboard hackathon. Dokumen tersebut menjelaskan posisi Jev, pertanyaan Noul/Choice/Score, pemanfaatan usage, contoh C02/C06, serta keterlacakan hasil. Statusnya rancangan; jangan mengklaim contoh sebagai hasil API. Gunakan Jev untuk penilaian semantik yang spesifik, kode untuk perhitungan dan tanggal, serta context graph untuk pengambilan dan penelusuran bukti. Confidence model bukan probabilitas deal menang.
 
@@ -32,30 +32,30 @@ Baca [JEV_ACCOUNT_EXPANSION.md](JEV_ACCOUNT_EXPANSION.md) ketika membahas atau m
 
 ## Peta seluruh berkas
 
-Semua path berikut relatif terhadap root workspace. Jumlah baris merupakan hasil pemeriksaan awal; hitung ulang jika sumber berubah. Angka CSV tidak termasuk header.
+Path dataset berikut relatif terhadap root repositori. PDF brief di workspace induk tidak disertakan dalam repositori aplikasi. Jumlah baris merupakan hasil pemeriksaan awal; hitung ulang jika sumber berubah. Angka CSV tidak termasuk header.
 
-| Berkas                                                     |                  Volume awal | Peran dalam analisis                                                                                     |
-| ---------------------------------------------------------- | ---------------------------: | -------------------------------------------------------------------------------------------------------- |
-| `01 Case/Studi Kasus Hackathon_PESERTA.pdf`                |                    4 halaman | Brief utama, konteks bisnis, aturan graph, tugas tim, dan kriteria penilaian                             |
-| `01 Case/1.pdf`                                            |                    4 halaman | Referensi visual dashboard dataset, contoh akun C01, kontak, interaksi, dan tiket; berupa halaman gambar |
-| `01 Case/dataset_kasirnusa/README.md`                      |                    1 dokumen | Kamus data, definisi kolom, relasi sumber, dan kebijakan diskon                                          |
-| `01 Case/dataset_kasirnusa/crm_accounts.csv`               |                           45 | Profil akun, tipe, paket, outlet, owner, champion, NPS, health score                                     |
-| `01 Case/dataset_kasirnusa/crm_contacts.csv`               |                          160 | Identitas kontak, email dan jabatan saat ini                                                             |
-| `01 Case/dataset_kasirnusa/contact_employment_history.csv` |                          217 | Riwayat organisasi/jabatan; verifikasi champion dan koneksi lintas akun                                  |
-| `01 Case/dataset_kasirnusa/employees.csv`                  |                           10 | Nama, jabatan, email, owner akun/deal, dan pejabat approval                                              |
-| `01 Case/dataset_kasirnusa/crm_deals.csv`                  |                           22 | Pipeline terbuka serta riwayat deal baru, renewal, ekspansi, menang/kalah                                |
-| `01 Case/dataset_kasirnusa/interactions.jsonl`             |                          350 | Email eksternal/internal dan meeting; niat ekspansi, keputusan, janji, stakeholder                       |
-| `01 Case/dataset_kasirnusa/outlets.csv`                    |                          620 | Daftar outlet, kota, dan penggunaan mode offline                                                         |
-| `01 Case/dataset_kasirnusa/product_usage_daily.csv`        |                      226.300 | Transaksi harian, versi aplikasi, dan transaksi offline tersinkron                                       |
-| `01 Case/dataset_kasirnusa/feature_usage_monthly.csv`      |                        1.178 | Adopsi fitur per akun per bulan                                                                          |
-| `01 Case/dataset_kasirnusa/support_tickets.csv`            |                          640 | Keluhan, permintaan fitur, kebutuhan integrasi, status penyelesaian                                      |
-| `01 Case/dataset_kasirnusa/bugs.csv`                       |                            4 | Bug, versi terdampak, status, dan fitur terkait                                                          |
-| `01 Case/dataset_kasirnusa/releases.csv`                   |                            3 | Versi dan tanggal rilis aplikasi                                                                         |
-| `01 Case/dataset_kasirnusa/features.csv`                   |                            8 | Fitur, status produk, target awal/terkini, dan catatan roadmap                                           |
-| `01 Case/dataset_kasirnusa/contracts_billing.csv`          |                           40 | Kontrak, outlet berbayar, batas paket, harga, diskon, renewal, pembayaran                                |
-| `01 Case/dataset_kasirnusa/decision_log.csv`               |                           30 | Approval, penolakan, pengecualian, janji fitur, eskalasi, dan bukti keputusan                            |
-| `01 Case/dataset_kasirnusa/decision_log.xlsx`              |                Periksa ulang | Representasi Excel log keputusan; rekonsiliasi dengan CSV sebelum digunakan                              |
-| `New folder/`                                              | Kosong saat pemeriksaan awal | Tidak ada sumber data saat ini; periksa ulang jika ada berkas baru                                       |
+| Berkas                                                  |                  Volume awal | Peran dalam analisis                                                                                     |
+| ------------------------------------------------------- | ---------------------------: | -------------------------------------------------------------------------------------------------------- |
+| `01 Case/Studi Kasus Hackathon_PESERTA.pdf`             |                    4 halaman | Brief utama, konteks bisnis, aturan graph, tugas tim, dan kriteria penilaian                             |
+| `01 Case/1.pdf`                                         |                    4 halaman | Referensi visual dashboard dataset, contoh akun C01, kontak, interaksi, dan tiket; berupa halaman gambar |
+| `data/dataset_kasirnusa/README.md`                      |                    1 dokumen | Kamus data, definisi kolom, relasi sumber, dan kebijakan diskon                                          |
+| `data/dataset_kasirnusa/crm_accounts.csv`               |                           45 | Profil akun, tipe, paket, outlet, owner, champion, NPS, health score                                     |
+| `data/dataset_kasirnusa/crm_contacts.csv`               |                          160 | Identitas kontak, email dan jabatan saat ini                                                             |
+| `data/dataset_kasirnusa/contact_employment_history.csv` |                          217 | Riwayat organisasi/jabatan; verifikasi champion dan koneksi lintas akun                                  |
+| `data/dataset_kasirnusa/employees.csv`                  |                           10 | Nama, jabatan, email, owner akun/deal, dan pejabat approval                                              |
+| `data/dataset_kasirnusa/crm_deals.csv`                  |                           22 | Pipeline terbuka serta riwayat deal baru, renewal, ekspansi, menang/kalah                                |
+| `data/dataset_kasirnusa/interactions.jsonl`             |                          350 | Email eksternal/internal dan meeting; niat ekspansi, keputusan, janji, stakeholder                       |
+| `data/dataset_kasirnusa/outlets.csv`                    |                          620 | Daftar outlet, kota, dan penggunaan mode offline                                                         |
+| `data/dataset_kasirnusa/product_usage_daily.csv`        |                      226.300 | Transaksi harian, versi aplikasi, dan transaksi offline tersinkron                                       |
+| `data/dataset_kasirnusa/feature_usage_monthly.csv`      |                        1.178 | Adopsi fitur per akun per bulan                                                                          |
+| `data/dataset_kasirnusa/support_tickets.csv`            |                          640 | Keluhan, permintaan fitur, kebutuhan integrasi, status penyelesaian                                      |
+| `data/dataset_kasirnusa/bugs.csv`                       |                            4 | Bug, versi terdampak, status, dan fitur terkait                                                          |
+| `data/dataset_kasirnusa/releases.csv`                   |                            3 | Versi dan tanggal rilis aplikasi                                                                         |
+| `data/dataset_kasirnusa/features.csv`                   |                            8 | Fitur, status produk, target awal/terkini, dan catatan roadmap                                           |
+| `data/dataset_kasirnusa/contracts_billing.csv`          |                           40 | Kontrak, outlet berbayar, batas paket, harga, diskon, renewal, pembayaran                                |
+| `data/dataset_kasirnusa/decision_log.csv`               |                           30 | Approval, penolakan, pengecualian, janji fitur, eskalasi, dan bukti keputusan                            |
+| `data/dataset_kasirnusa/decision_log.xlsx`              |                Periksa ulang | Representasi Excel log keputusan; rekonsiliasi dengan CSV sebelum digunakan                              |
+| `New folder/`                                           | Kosong saat pemeriksaan awal | Tidak ada sumber data saat ini; periksa ulang jika ada berkas baru                                       |
 
 Jangan menganggap `1.pdf` kosong karena ekstraksi teks tidak menghasilkan teks. Render halaman dan baca secara visual atau gunakan OCR. Dashboard PDF merupakan referensi; verifikasi angka dan identitas terhadap sumber terstruktur.
 
