@@ -32,7 +32,7 @@ Container tetap berjalan sebelum database siap supaya dapat menerima exec. `/api
 | Backend  | GET /api/health/live:8000 | 30 detik | 5 detik | 3     | 30 detik     |
 | Frontend | GET /healthz:8080         | 30 detik | 5 detik | 3     | 15 detik     |
 
-Expected HTTP status 200. Dockerfile juga memiliki HEALTHCHECK. Healthy berarti proses hidup; setup baru selesai ketika readiness berhasil setelah migration/seeder manual. MySQL health query memakai timeout 3 detik. OpenRouter tidak dipanggil oleh health check.
+Expected HTTP status 200. Dockerfile juga memiliki HEALTHCHECK. Image backend menyertakan curl untuk HTTP health check yang dibuat platform; image frontend menyediakan wget. Healthy berarti proses hidup; setup baru selesai ketika readiness berhasil setelah migration/seeder manual. MySQL health query memakai timeout 3 detik. OpenRouter tidak dipanggil oleh health check.
 
 ## CI/CD dan rollback
 
