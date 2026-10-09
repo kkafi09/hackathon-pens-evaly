@@ -79,6 +79,40 @@ def test_reports_database_filters_and_pages(db_engine, source):
     assert store.reports('%')['total']==0
 
 
+def test_reports_sort_only_ids_and_restore_payload_order():
+    from types import SimpleNamespace
+    from sqlalchemy.dialects import mysql
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def execute(self, statement):
+            sql = str(statement.compile(dialect=mysql.dialect()))
+            statements.append(sql)
+            if 'count(' in sql:
+                return SimpleNamespace(scalar=lambda: 2)
+            if 'ORDER BY' in sql:
+                assert 'expansion_runs.payload' not in sql.split('FROM')[0]
+                assert 'expansion_runs.created_at DESC, expansion_runs.id DESC' in sql
+                return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: ['b', 'a']))
+            assert 'ORDER BY' not in sql and 'expansion_runs.id IN' in sql
+            return SimpleNamespace(all=lambda: [SimpleNamespace(id=rid, payload={
+                'id': rid, 'account_id': 'C02', 'status': 'done', 'result': None,
+                'snapshot_data': 'large evidence ' * 100000,
+            }) for rid in ('a', 'b')])
+
+    statements = []
+    db = SimpleNamespace(connect=lambda: Connection())
+    result = RunStore(db, recover=False).reports(limit=25, offset=0)
+    assert result['total'] == 2
+    assert [row['id'] for row in result['items']] == ['b', 'a']
+    assert len(statements) == 3
+
+
 def test_report_api_validation_and_downloads(monkeypatch, source):
     import backend.app as app
     _, run = run_analysis(source)

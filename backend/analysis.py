@@ -159,8 +159,13 @@ class RunStore:
             conditions.append(runs.c.status == status)
         with self.db.connect() as connection:
             total = connection.execute(select(func.count()).select_from(runs).where(*conditions)).scalar()
-            rows = connection.execute(select(runs.c.payload).where(*conditions)
+            # Keep large JSON snapshots out of MySQL's filesort buffer.
+            ids = connection.execute(select(runs.c.id).where(*conditions)
                 .order_by(runs.c.created_at.desc(), runs.c.id.desc()).limit(limit).offset(offset)).scalars().all()
+            payloads = connection.execute(select(runs.c.id, runs.c.payload)
+                .where(runs.c.id.in_(ids))).all() if ids else []
+            by_id = {row.id: row.payload for row in payloads}
+            rows = [by_id[rid] for rid in ids if rid in by_id]
         items = []
         for row in rows:
             result = row.get('result') or {}
