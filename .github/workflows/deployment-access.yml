@@ -1,0 +1,17 @@
+name: Deployment API access check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  access:
+    runs-on: ubuntu-latest
+    env:
+      COOLIFY_URL: ${{ vars.COOLIFY_URL }}
+      COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+      COOLIFY_BACKEND_UUID: ${{ vars.COOLIFY_BACKEND_UUID }}
+      COOLIFY_FRONTEND_UUID: ${{ vars.COOLIFY_FRONTEND_UUID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check API access without deploying
+        run: python deploy/check_access.py
