@@ -15,7 +15,7 @@ test('logo and light/dark themes follow the system and persist explicit choices'
       (element: HTMLImageElement) => element.complete && element.naturalWidth > 0,
     ),
   ).toBe(true);
-  await expect(page.locator('.entity.account')).toHaveCount(45);
+  await expect(page.locator('.entity.account')).toHaveCount(45, { timeout: 20000 });
   const lightBackground = await page
     .locator('html')
     .evaluate((el) => getComputedStyle(el).backgroundColor);

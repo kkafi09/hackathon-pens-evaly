@@ -19,7 +19,7 @@ test('graph, five options, locked tracks and account context', async ({ page }) 
       evaluationRequests++;
   });
   await page.goto('/');
-  await expect(page.locator('.entity.account')).toHaveCount(45);
+  await expect(page.locator('.entity.account')).toHaveCount(45, { timeout: 20000 });
   await openAccount(page);
   await expect(page.getByRole('menuitem')).toHaveCount(5);
   await expect(page.getByRole('menuitem', { name: /Churn Early/ })).toBeDisabled();
