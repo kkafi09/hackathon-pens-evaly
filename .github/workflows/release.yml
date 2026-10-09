@@ -13,7 +13,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      components: ${{ steps.detect.outputs.components }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        run: python deploy/changes.py
+
   lint:
+    needs: changes
+    if: needs.changes.outputs.components != '[]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,13 +37,13 @@ jobs:
       - run: bun run lint
 
   images:
-    if: github.event_name != 'pull_request'
-    needs: lint
+    if: github.event_name != 'pull_request' && needs.changes.outputs.components != '[]'
+    needs: [changes, lint]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        component: [frontend, backend]
+        component: ${{ fromJSON(needs.changes.outputs.components) }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -50,7 +63,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.component }}
 
   deploy:
-    needs: images
+    needs: [changes, images]
     runs-on: ubuntu-latest
     env:
       COOLIFY_URL: ${{ vars.COOLIFY_URL }}
@@ -65,5 +78,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install 'httpx>=0.28,<1'
-      - name: Trigger backend and frontend deployment
-        run: python deploy/coolify.py --trigger-only
+      - name: Trigger changed applications
+        run: python deploy/coolify.py --trigger-only --components ${{ join(fromJSON(needs.changes.outputs.components), ' ') }}

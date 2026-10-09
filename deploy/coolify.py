@@ -5,27 +5,32 @@ import time
 import httpx
 
 
-def main(trigger_only=False):
+def main(trigger_only=False, components=('backend', 'frontend')):
+    if not components or set(components) - {'backend', 'frontend'}:
+        raise ValueError('Select backend and/or frontend.')
+    kinds = [kind for kind in ['BACKEND', 'FRONTEND'] if kind.lower() in components]
     base = os.environ['COOLIFY_URL'].rstrip('/') + '/api/v1'
     tag = 'sha-' + os.environ['GITHUB_SHA']
     with httpx.Client(headers={'Authorization': 'Bearer ' + os.environ['COOLIFY_API_TOKEN']}, timeout=30) as client:
-        current = client.get(base + '/applications/' + os.environ['COOLIFY_BACKEND_UUID'])
-        current.raise_for_status()
-        backend_running = current.json().get('status', '').startswith('running')
-        # Never replace a backend while its in-process analysis is still running.
-        deadline = time.monotonic() + 600
-        while backend_running:
-            health = httpx.get(os.environ['BACKEND_DOMAIN'].rstrip('/') + '/api/health/ready', timeout=10)
-            if health.status_code in (404, 502, 503) or (health.is_success and health.json().get('active_runs', 0) == 0):
-                break
-            if time.monotonic() > deadline:
-                raise RuntimeError('Backend belum aman untuk diganti; deployment dibatalkan.')
-            time.sleep(10)
-        for kind in ['BACKEND', 'FRONTEND']:
+        backend_running = False
+        if 'BACKEND' in kinds:
+            current = client.get(base + '/applications/' + os.environ['COOLIFY_BACKEND_UUID'])
+            current.raise_for_status()
+            backend_running = current.json().get('status', '').startswith('running')
+            # Never replace a backend while its in-process analysis is still running.
+            deadline = time.monotonic() + 600
+            while backend_running:
+                health = httpx.get(os.environ['BACKEND_DOMAIN'].rstrip('/') + '/api/health/ready', timeout=10)
+                if health.status_code in (404, 502, 503) or (health.is_success and health.json().get('active_runs', 0) == 0):
+                    break
+                if time.monotonic() > deadline:
+                    raise RuntimeError('Backend belum aman untuk diganti; deployment dibatalkan.')
+                time.sleep(10)
+        for kind in kinds:
             uuid = os.environ[f'COOLIFY_{kind}_UUID']
             response = client.patch(base + '/applications/' + uuid, json={'docker_registry_image_tag': tag})
             response.raise_for_status()
-        for kind in ['BACKEND', 'FRONTEND']:
+        for kind in kinds:
             uuid = os.environ[f'COOLIFY_{kind}_UUID']
             if kind == 'BACKEND' and backend_running:
                 # Stop first: startup recovery must never mark another instance's work failed.
@@ -65,7 +70,7 @@ def main(trigger_only=False):
             else:
                 raise RuntimeError(kind + ' liveness belum berhasil.')
             print(kind + ' deployed: ' + tag)
-        if trigger_only:
+        if trigger_only or 'BACKEND' not in kinds:
             return
         response = httpx.get(os.environ['BACKEND_DOMAIN'].rstrip('/') + '/api/health/ready', timeout=10)
         if response.status_code == 503:
@@ -77,5 +82,7 @@ def main(trigger_only=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--trigger-only', action='store_true', help='Queue both deployments without waiting for completion or health checks.')
-    main(trigger_only=parser.parse_args().trigger_only)
+    parser.add_argument('--trigger-only', action='store_true', help='Queue selected deployments without waiting for completion or health checks.')
+    parser.add_argument('--components', nargs='+', choices=['frontend', 'backend'], default=['backend', 'frontend'], help='Applications to update (default: both).')
+    args = parser.parse_args()
+    main(trigger_only=args.trigger_only, components=args.components)
